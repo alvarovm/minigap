@@ -17,16 +17,31 @@ This is code is meant to run in multiple architectures, such as many-core and ac
 
 ### Installation
 
+This code could be installed within an `conda` enviroment as: 
+
+`conda create -f environment.yml`
+
 Dependencies:
-[] python >= 3.6
-[] dscribe 
-[] SYCL compiler
 
-### Contributing
-
+- python >= 3.6 
+- dscribe 
+- SYCL compiler
+- Tensorflow
 
 ### Contributors
- Sean Stafford @SeanStafford
- Alvaro Vazquez-Mayagoitia @alvarovm
+
+Contributions are always welcome. Contributors should fork this repository and submit a merge request for review of the code.
+
+
+
+### References
+
+Dscribe
+
+GAP
+
+
+
+Copyright 2021 Argonne UChicago LLC
 
 
