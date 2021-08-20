@@ -1,0 +1,12 @@
+name: minigap
+dependencies:
+- scikit-learn
+- tensorflow-gpu
+- cudatoolkit
+- cudnn
+- pip:
+  - ase
+  - dscribe
+  - tqdm
+  - gpflow
+

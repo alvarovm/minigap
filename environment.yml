@@ -1,0 +1,11 @@
+name: minigap
+dependencies:
+- scikit-learn-intelex
+- tensorflow
+- tensorflow-probability
+- pip:
+  - ase
+  - dscribe
+  - tqdm
+  - gpflow
+
