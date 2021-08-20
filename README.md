@@ -21,12 +21,33 @@ This code could be installed within an `conda` enviroment as:
 
 `conda create -f environment.yml`
 
-Dependencies:
+Then 
+
+`conda activate minigap`
+
+#### Creating an custom kernel in Jupiter
+
+```
+conda activate minigap
+python -m ipykernel install --user --name "minigap"
+```
+#### Dependencies:
 
 - python >= 3.6 
 - dscribe 
 - SYCL compiler
 - Tensorflow
+- Tensorflow-probability
+- GPflow
+- scikit-learn
+
+### What is inside?
+
+- data: Initial XYZ, sample trajectories, and downloaded material.
+- code: Repo specific modules for training and creating the models.
+- notebooks: 
+- results: Figures and models
+- media: Assorted Images
 
 ### Contributors
 
