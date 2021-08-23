@@ -21,7 +21,7 @@ This code could be installed within an `conda` enviroment as:
 
 `conda create -f environment.yml`
 
-Then 
+Then the new environment is activated as:
 
 `conda activate minigap`
 
