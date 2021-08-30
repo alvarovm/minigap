@@ -4,6 +4,7 @@ dependencies:
 - tensorflow-gpu
 - cudatoolkit
 - cudnn
+- pip
 - pip:
   - ase
   - dscribe
