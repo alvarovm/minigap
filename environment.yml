@@ -3,6 +3,7 @@ dependencies:
 - scikit-learn-intelex
 - tensorflow
 - tensorflow-probability
+- pip
 - pip:
   - ase
   - dscribe
