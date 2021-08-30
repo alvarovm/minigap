@@ -19,7 +19,7 @@ This is code is meant to run in multiple architectures, such as many-core and ac
 
 This code could be installed within an `conda` enviroment as: 
 
-`conda create -f environment.yml`
+`conda env create -f environment.yml`
 
 Then the new environment is activated as:
 
