@@ -17,6 +17,8 @@ class Structure3DPlot:
         # bl is short for bond length
         # bw is short for bond width
         
+        self.title = kwargs.get("title", "")        
+        
         self.figsize = kwargs.get('figsize', (6.5, 6))
         self.elevation = kwargs.get('elevation', 70)
         self.azimuth = kwargs.get('azimuth', 0)
@@ -24,8 +26,8 @@ class Structure3DPlot:
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
-        self.element_colors = kwargs.get('element_colors', {"C":"g", "O":"r", "H":"k"})
-        self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46})
+        self.element_colors = kwargs.get('element_colors', {"C":"g", "O":"r", "H":"k", "N":"b"})
+        self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46, "N":0.74})
         
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
         
@@ -68,15 +70,18 @@ class Structure3DPlot:
     
                             
     def BondWidth(self, bl):
-        if self.variable_bw:
-            if bl > self.relaxed_bl:
-                bw_exponent = self.bond_shrink_exponent
+        if bl <= self.max_bl:
+            if self.variable_bw:
+                if bl > self.relaxed_bl:
+                    bw_exponent = self.bond_shrink_exponent
+                else:
+                    bw_exponent = self.bond_grow_exponent
+                bw = self.relaxed_bw*np.exp(-bw_exponent*(bl - self.relaxed_bl))
+                return bw
             else:
-                bw_exponent = self.bond_grow_exponent
-            bw = self.relaxed_bw*np.exp(-bw_exponent*(bl - self.relaxed_bl))
-            return bw
+                return self.relaxed_bw
         else:
-            return self.relaxed_bw
+            return 0.0
         
     def Plot(self):
         self.fig = plt.figure(figsize = self.figsize)#figsize)
@@ -96,6 +101,8 @@ class Structure3DPlot:
         
         for i in range(self.n_bonds):
             self.ax.plot3D(*self.bonds[i], '-', c = self.bond_color, lw = self.bws[i], zorder=0)
+        
+        self.ax.set_title(self.title)
         
         return self.ax
         
@@ -131,8 +138,8 @@ class Structure3DAnimation:
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
-        self.element_colors = kwargs.get('element_colors', {"C":"g", "O":"r", "H":"k"})
-        self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46})
+        self.element_colors = kwargs.get('element_colors', {"C":"g", "O":"r", "H":"k", "N":"b"})
+        self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46, "N":0.74})
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
         
         self.adjust_COM = kwargs.get("adjust_COM", True)
@@ -182,15 +189,18 @@ class Structure3DAnimation:
     
                             
     def BondWidth(self, bl):
-        if self.variable_bw:
-            if bl > self.relaxed_bl:
-                bw_exponent = self.bond_shrink_exponent
+        if bl <= self.max_bl:
+            if self.variable_bw:
+                if bl > self.relaxed_bl:
+                    bw_exponent = self.bond_shrink_exponent
+                else:
+                    bw_exponent = self.bond_grow_exponent
+                bw = self.relaxed_bw*np.exp(-bw_exponent*(bl - self.relaxed_bl))
+                return bw
             else:
-                bw_exponent = self.bond_grow_exponent
-            bw = self.relaxed_bw*np.exp(-bw_exponent*(bl - self.relaxed_bl))
-            return bw
+                return self.relaxed_bw
         else:
-            return self.relaxed_bw
+            return 0.0
         
     def Plot(self):
         self.fig = plt.figure(figsize = self.figsize)#figsize)
