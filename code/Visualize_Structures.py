@@ -10,8 +10,12 @@ from IPython.display import HTML
 class Structure3DPlot:
     def __init__(self, structure):
         self.structure = structure.copy()
-        self.SetVisualParameters()
 
+        # get intitial guess for a few variables
+        self.likely_boundary = np.max(np.ptp(self.structure.positions,axis=0)) * 4/3 
+
+        self.SetVisualParameters()
+        
         
     def SetVisualParameters(self, **kwargs):
         # bl is short for bond length
@@ -22,18 +26,19 @@ class Structure3DPlot:
         self.figsize = kwargs.get('figsize', (6.5, 6))
         self.elevation = kwargs.get('elevation', 70)
         self.azimuth = kwargs.get('azimuth', 0)
-        self.sidelength = kwargs.get('sidelength', 6)
+        self.sidelength = kwargs.get('sidelength', self.likely_boundary)
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
         self.element_colors = kwargs.get('element_colors', {"C":"g", "O":"r", "H":"k", "N":"b"})
         self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46, "N":0.74})
-        
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
-        
+
+        self.forbidden_HH_bonds = kwargs.get('forbidden_HH_bonds', True)
+
         self.bond_color = kwargs.get('bond_color', "gray")
         
-        self.variable_bw = kwargs.get('variable_bw', True)
+        self.variable_bw = kwargs.get('variable_bw', False)
         self.relaxed_bl = kwargs.get('relaxed_bl', 1.45)
         self.max_bl = kwargs.get('max_bl', 1.8)
         self.relaxed_bw = kwargs.get('relaxed_bw', 24/self.sidelength)
@@ -60,10 +65,11 @@ class Structure3DPlot:
         self.bws = []
         for i in range(self.n_atoms):
             for j in range(i):
-                bl_ij = np.linalg.norm(self.positions[i] - self.positions[j])
-                if bl_ij <= self.max_bl:
-                    self.bonds.append(np.array([*self.positions[[i,j]].transpose()]))
-                    self.bws.append(self.BondWidth(bl_ij))
+                if not self.forbidden_HH_bonds or self.elements[i] != "H" or self.elements[j] != "H":
+                    bl_ij = np.linalg.norm(self.positions[i] - self.positions[j])
+                    if bl_ij <= self.max_bl:
+                        self.bonds.append(np.array([*self.positions[[i,j]].transpose()]))
+                        self.bws.append(self.BondWidth(bl_ij))
         self.n_bonds = len(self.bonds)
         self.bonds = np.array(self.bonds)
         return self.bonds
@@ -107,14 +113,18 @@ class Structure3DPlot:
         return self.ax
         
         
+        
 class Structure3DAnimation:
     def __init__(self, structure_list):
         self.structure_list = structure_list.copy()
-        self.SetVisualParameters()
         self.n_structs = len(self.structure_list)
-        # get guess for number of atoms and bonds
+
+        # get intitial guess for a few variables
         self.n_atoms_likely_max = len(self.structure_list[0].positions)
         self.n_bonds_likely_max = self.n_atoms_likely_max*2 + 1
+        self.likely_boundary = np.max(np.ptp(self.structure_list[0].positions, axis=0)) * 4/3         
+        
+        self.SetVisualParameters()
         
         
     def SetVisualParameters(self, **kwargs):
@@ -134,7 +144,7 @@ class Structure3DAnimation:
         self.figsize = kwargs.get('figsize', (6.5, 6))
         self.elevation = kwargs.get('elevation', 70)
         self.azimuth = kwargs.get('azimuth', 0)
-        self.sidelength = kwargs.get('sidelength', 6)
+        self.sidelength = kwargs.get('sidelength', self.likely_boundary)
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
@@ -142,11 +152,14 @@ class Structure3DAnimation:
         self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46, "N":0.74})
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
         
+        self.forbidden_HH_bonds = kwargs.get('forbidden_HH_bonds', True)
+
+        
         self.adjust_COM = kwargs.get("adjust_COM", True)
         
         self.bond_color = kwargs.get('bond_color', "gray")
         
-        self.variable_bw = kwargs.get('variable_bw', True)
+        self.variable_bw = kwargs.get('variable_bw', False)
         self.relaxed_bl = kwargs.get('relaxed_bl', 1.45)
         self.max_bl = kwargs.get('max_bl', 1.8)
         self.relaxed_bw = kwargs.get('relaxed_bw', 24/self.sidelength)
@@ -171,23 +184,25 @@ class Structure3DAnimation:
             self.atom_sizes.append(self.atom_size_scale_factor * self.element_sizes[self.elements[i]])
             self.atom_colors.append(self.element_colors[self.elements[i]])
         return self.positions
-                 
+               
+        
     def SetBondList(self):
         self.bonds = []
         self.bws = []
         for i in range(self.n_atoms):
             for j in range(i):
-                bl_ij = np.linalg.norm(self.positions[i] - self.positions[j])
-                if bl_ij <= self.max_bl:
-                    self.bonds.append(np.array([*self.positions[[i,j]].transpose()]))
-                    self.bws.append(self.BondWidth(bl_ij))
+                if not self.forbidden_HH_bonds or self.elements[i] != "H" or self.elements[j] != "H":
+                    bl_ij = np.linalg.norm(self.positions[i] - self.positions[j])
+                    if bl_ij <= self.max_bl:
+                        self.bonds.append(np.array([*self.positions[[i,j]].transpose()]))
+                        self.bws.append(self.BondWidth(bl_ij))                
         self.n_bonds = len(self.bonds)
         if self.n_bonds > self.n_bonds_likely_max:
             print("Warning: More bonds detected than expected")
         self.bonds = np.array(self.bonds)
         return self.bonds
+
     
-                            
     def BondWidth(self, bl):
         if bl <= self.max_bl:
             if self.variable_bw:
@@ -201,6 +216,7 @@ class Structure3DAnimation:
                 return self.relaxed_bw
         else:
             return 0.0
+        
         
     def Plot(self):
         self.fig = plt.figure(figsize = self.figsize)#figsize)
