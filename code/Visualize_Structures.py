@@ -115,7 +115,7 @@ class Structure3DPlot:
         
         
 class Structure3DAnimation:
-    def __init__(self, structure_list):
+    def __init__(self, structure_list, **kwargs):
         self.structure_list = structure_list.copy()
         self.n_structs = len(self.structure_list)
 
@@ -124,12 +124,17 @@ class Structure3DAnimation:
         self.n_bonds_likely_max = self.n_atoms_likely_max*2 + 1
         self.likely_boundary = np.max(np.ptp(self.structure_list[0].positions, axis=0)) * 4/3         
         
-        self.SetVisualParameters()
+        self.SetVisualParameters(**kwargs)
+        
+        if self.rotate and self.n_structs == 1:
+            self.structure_list *= self.frames
+            self.n_structs = self.frames
         
         
     def SetVisualParameters(self, **kwargs):
         # bl is short for bond length
         # bw is short for bond width
+        print(kwargs)
         
         self.verbose = kwargs.get('verbose', True)
         self.print_interval = kwargs.get("print_interval", 10)

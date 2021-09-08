@@ -13,7 +13,11 @@ from ase.md.nvtberendsen import NVTBerendsen
 from ase import units
 from ase.io import read
 import matplotlib.pyplot as plt
+import os
+import base64
 
+def generate_unique_id():
+    return base64.b64encode(os.urandom(64)).decode().replace("/", "").replace("+", "")[:5]
 
 def assign_calc(molecule, calc_type):    
     if calc_type == "EMT":
@@ -52,11 +56,15 @@ def make_diatomic(element = 'N', verbose=False, bond_length=1.1, calc_type="EMT"
 
 
 
-def make_optimized_diatomic(element = "N", optimizer_type="MDMin", fmax=0.0001, verbose=False, 
-                            bond_length=1.1, optimize_step=.02, calc_type="EMT", return_history = False):
+def make_optimized_diatomic(element = "N", optimizer_type="MDMin", fmax=0.0001, verbose=False, bond_length=1.1, 
+                            optimize_step=.02, calc_type="EMT", return_traj_file = False):
     molecule = make_diatomic(element=element, bond_length=bond_length, verbose=verbose, calc_type=calc_type)
-    
-    traj_filename = element + "_" + optimizer_type + ".traj"
+        
+    if return_traj_file:
+        fid = generate_unique_id()
+        traj_filename = "../data/" + element + "_" + optimizer_type + "_" + fid + ".traj"
+    else:
+        traj_filename=None
     
     if optimizer_type == "MDMin":
         optimizer = MDMin(molecule, trajectory=traj_filename, logfile=None, dt= optimize_step)
@@ -68,8 +76,8 @@ def make_optimized_diatomic(element = "N", optimizer_type="MDMin", fmax=0.0001, 
     
     optimizer.run(fmax=fmax)
     
-    if return_history:
-        return read(traj_filename,index=':')
+    if return_traj_file:
+        return traj_filename
     else:
         return molecule
 
@@ -84,7 +92,7 @@ def print_md_progress(molecule, i):
           % (i, epot, ekin, ekin / (2.5 * units.kB), epot + ekin))
 
 def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=10, md_type="VelocityVerlet", time_step=1, bond_length=1.1,
-                           temperature=300, verbose = False, print_step_size = 10, calc_type="EMT", preoptimize=True):
+                           temperature=300, verbose = False, print_step_size = 10, calc_type="EMT", preoptimize=True, return_traj_file = False):
     if structure is None and from_diatomic == False:
         print("Must provide a structure from which to start a trajectory or specify that you want to generate a trajectory of diatomic molecules.")
         return
@@ -105,9 +113,10 @@ def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=
     else:
         print("Did not understand instructions for generating trajectory.")
         return
-
     
-    traj_filename = chemical_formula + "_" + md_type +".traj"
+    fid = generate_unique_id()
+
+    traj_filename = "../data/" + chemical_formula + "_" + md_type + "_" + fid + ".traj"
     
     MaxwellBoltzmannDistribution(molecule, temperature_K=temperature)# * (2.5 * units.kB))
     
@@ -134,10 +143,13 @@ def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=
             print_md_progress(molecule, step_i)
     else:
         md.run(nsteps)
-        
-    atoms_traj_list = read(traj_filename,index=':')
     
-    if verbose:
-        plt.plot([atoms.get_kinetic_energy()/len(atoms)/(2.5*units.kB) for atoms in atoms_traj_list])
-    
-    return atoms_traj_list
+    if return_traj_file:
+        return traj_filename
+    else:
+        atoms_traj_list = read(traj_filename,index=':')
+
+        if verbose:
+            plt.plot([atoms.get_kinetic_energy()/len(atoms)/(2.5*units.kB) for atoms in atoms_traj_list])
+
+        return atoms_traj_list
