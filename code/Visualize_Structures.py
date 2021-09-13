@@ -6,18 +6,23 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from matplotlib import animation
 from IPython.display import HTML
+from import_default_element_values import import_default_element_values
+element_color_map, element_radius_map = import_default_element_values()
+# Overriding VESTA defaults for C and H
+element_color_map['C'] = 'g'
+element_color_map['H'] = 'k'
 
 class Structure3DPlot:
-    def __init__(self, structure):
+    def __init__(self, structure, **kwargs):
         self.structure = structure.copy()
 
         # get intitial guess for a few variables
         self.likely_boundary = np.max(np.ptp(self.structure.positions,axis=0)) * 4/3 
 
-        self.SetVisualParameters()
+        self.ModifyVisualParameters(**kwargs)
         
         
-    def SetVisualParameters(self, **kwargs):
+    def ModifyVisualParameters(self, **kwargs):
         # bl is short for bond length
         # bw is short for bond width
         
@@ -30,8 +35,8 @@ class Structure3DPlot:
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
-        self.element_colors = kwargs.get('element_colors', {"C":"g", "O":"r", "H":"k", "N":"b"})
-        self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46, "N":0.74})
+        self.element_colors = kwargs.get('element_colors', element_color_map)#{"C":"g", "O":"r", "H":"k", "N":"b"})
+        self.element_sizes = kwargs.get('element_sizes', element_radius_map)
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
 
         self.forbidden_HH_bonds = kwargs.get('forbidden_HH_bonds', True)
@@ -124,17 +129,16 @@ class Structure3DAnimation:
         self.n_bonds_likely_max = self.n_atoms_likely_max*2 + 1
         self.likely_boundary = np.max(np.ptp(self.structure_list[0].positions, axis=0)) * 4/3         
         
-        self.SetVisualParameters(**kwargs)
+        self.ModifyVisualParameters(**kwargs)
         
         if self.rotate and self.n_structs == 1:
             self.structure_list *= self.frames
             self.n_structs = self.frames
         
         
-    def SetVisualParameters(self, **kwargs):
+    def ModifyVisualParameters(self, **kwargs):
         # bl is short for bond length
         # bw is short for bond width
-        print(kwargs)
         
         self.verbose = kwargs.get('verbose', True)
         self.print_interval = kwargs.get("print_interval", 10)
@@ -153,8 +157,8 @@ class Structure3DAnimation:
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
-        self.element_colors = kwargs.get('element_colors', {"C":"g", "O":"r", "H":"k", "N":"b"})
-        self.element_sizes = kwargs.get('element_sizes', {"C":0.77, "O":0.74, "H":0.46, "N":0.74})
+        self.element_colors = kwargs.get('element_colors', element_color_map)#{"C":"g", "O":"r", "H":"k", "N":"b"})
+        self.element_sizes = kwargs.get('element_sizes', element_radius_map)
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
         
         self.forbidden_HH_bonds = kwargs.get('forbidden_HH_bonds', True)

@@ -2,6 +2,7 @@
 # coding: utf-8
 
 from ase import Atoms
+import numpy.random as rand
 from ase.calculators.emt import EMT
 from ase.calculators.lj import LennardJones
 from ase.calculators.morse import MorsePotential
@@ -92,7 +93,12 @@ def print_md_progress(molecule, i):
           % (i, epot, ekin, ekin / (2.5 * units.kB), epot + ekin))
 
 def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=10, md_type="VelocityVerlet", time_step=1, bond_length=1.1,
-                           temperature=300, verbose = False, print_step_size = 10, calc_type="EMT", preoptimize=True, return_traj_file = False):
+                           temperature=300, verbose = False, print_step_size = 10, calc_type="EMT", preoptimize=True, return_traj_file = False, md_seed=1):
+    # It is usually most convenient to pass the total size of the trajectory you want which is the number of steps + 1
+    # nsteps, the generate_md_traj parameter, refers to the total trajectory size whereas nsteps, the local generate_md_traj variable, refers to the number of md steps
+    nsteps -= 1
+    
+    rand.seed(md_seed)
     if structure is None and from_diatomic == False:
         print("Must provide a structure from which to start a trajectory or specify that you want to generate a trajectory of diatomic molecules.")
         return

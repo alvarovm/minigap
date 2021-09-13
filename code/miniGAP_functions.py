@@ -562,9 +562,10 @@ class TensorflowGaussianProcessRegressionModel():
 
 
 
-
-def LearnEnergyFromSoap(soap_list, energy_list, training_fraction=0.7, verbose=False, 
-                        kernel_type="RBF", model_type="GP_sklearn", split_seed = 1, gamma = 1, order = 0):
+def LearnEnergyFromSoap(soap_list, energy_list, training_fraction=0.7, verbose=False, kernel_type="RBF", model_type="GP_sklearn",
+                        split_seed = 1, learn_seed = 1, gamma = 1, order = 0, is_global = True,
+                        batch_size=30, n_epochs=5, learn_rate=0.05,
+                        noise_init = 1e-10, amplitude_init = 1, length_scale_init = 1, jitter=1e-6):
 #     # For consistency we start with the same random seed everytime (used for partitioning step)
 #     rand.seed(1)    
 #     # Partition the soap and energy data into training and test groups
@@ -576,14 +577,20 @@ def LearnEnergyFromSoap(soap_list, energy_list, training_fraction=0.7, verbose=F
 #     test_sps = [soap_list[i] for i in test_indices]
 #     test_ens = [energy_list[i] for i in test_indices]
 
-    energy_list = RegularizeData(energy_list)
+    if not is_global:
+        energy_list = np.repeat(np.array(energy_list)/soap_list.shape[1], soap_list.shape[1])#, dtype=np.float64) 
+        soap_list = np.reshape(soap_list, (soap_list.shape[0] * soap_list.shape[1], soap_list.shape[2]))
+
     
     train_sps, test_sps, train_ens, test_ens = train_test_split(soap_list, energy_list, random_state=split_seed,
                                                                 test_size=(1-training_fraction))
-
+    #split_data = train_test_split(SoapList, SoapDerivativeList, EnergyList, ForceList, 
+    #                          random_state=split_seed, test_size=(1-training_frac))
+    #train_sps, test_sps, train_d_sps, test_d_sps, train_ens, test_ens, train_frcs, test_frcs = split_data
+    
     if verbose:
         print("Initiating model training")
-        
+    
     if model_type == "GP_sklearn":
         if kernel_type == "RBF":
             rbf_kernel = RBF(length_scale=1/(2 * gamma )** 0.5, length_scale_bounds=(1e-4, 1e6))
@@ -600,13 +607,14 @@ def LearnEnergyFromSoap(soap_list, energy_list, training_fraction=0.7, verbose=F
     elif model_type == "Polynomial":
         regression_model = PolynomialRegressionModel(order=order).fit(train_sps, train_ens)
     elif model_type == "GP_Tensorflow":
-        regression_model = TensorflowGaussianProcessRegressionModel(test_xs=test_sps).fit(train_sps, train_ens)
+        regression_model = TensorflowGaussianProcessRegressionModel(train_sps, train_ens, test_sps, amplitude_init, length_scale_init,  
+                                                                    noise_init, jitter, verbose)\
+                           .fit(batch_size, n_epochs, learn_rate, learn_seed)
     else:
         print("This function does not currently support the model type '{}'".format(model_type))
         return
 
     return regression_model, test_sps, test_ens, train_sps, train_ens
-
 
 
 
@@ -625,9 +633,6 @@ def LearnFromSoap(soap_list, dsoap_dr_list, energy_list, force_list,
     #print(soap_list.shape)
     #soap_list = soap_list.reshape(len(soap_list),-1)
     soap_list = soap_list[:,0,:]
-
-
-    #energy_list = RegularizeData(energy_list)
     
     print([x.shape for x in [soap_list, dsoap_dr_list, energy_list, force_list]])
 
@@ -659,8 +664,8 @@ def PlotPredictedEnergies(actual_energies, predicted_energies, all_energies = []
     if show:
         plt.cla()
     all_energies = [ *actual_energies, *predicted_energies, *all_energies]
-    #min_energy = min(all_energies); max_energy = max(all_energies)
-    #plt.plot([min_energy, max_energy], [min_energy, max_energy], "-k")
+    min_energy = min(all_energies); max_energy = max(all_energies)
+    plt.plot([min_energy, max_energy], [min_energy, max_energy], "-k")
     plt.plot(actual_energies, predicted_energies, "o")
     plt.xlabel("Actual Test Energies")
     plt.ylabel("Energies Predicted by Regression Model")
@@ -680,11 +685,13 @@ def GetErrorFromModel(model, test_xs, test_ys, error_types = "absolute"):
     errors = []
     for error_type in error_types:
         if error_type == "absolute":
-            error = np.mean(np.absolute(test_ys - predicted_ys))
+            error = np.mean(np.abs(test_ys - predicted_ys))
         elif error_type == "rms":
             error = mean_squared_error(test_ys, predicted_ys)#, squared=False)
         elif error_type == "r2":
             error = np.corrcoef(test_ys, predicted_ys)[0,1] **2
+        elif error_type == "max":
+            error = np.max(np.abs(test_ys - predicted_ys))
         else:
             print("This function does not currently support the error type '{}'".format(error_type))
             return
