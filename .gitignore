@@ -1,5 +1,8 @@
 **/*.traj
 **/.ipynb_checkpoints
 data/QM9
+data/iso17
+data/iso17.tar.gz
+data/QM9.xyz.tar.bz2
 data/*_unzipped*
 **/__pycache__
