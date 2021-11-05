@@ -1,5 +1,6 @@
 name: minigap
 dependencies:
+- ipykernel
 - scikit-learn-intelex
 - tensorflow
 - tensorflow-probability
