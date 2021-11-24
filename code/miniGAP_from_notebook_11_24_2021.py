@@ -188,15 +188,13 @@ if not in_notebook():
     cmdline_args_dict = vars(cmdline_args)
 
 
+# In[ ]:
+
+
+
+
+
 # In[9]:
-
-
-FullStructureList = read("../data/distorted_propanol.extxyz.gz", ":200")#, ":{}".format(s.n_structs))
-# FullStructureList = read("../data/C7O2H10.extxyz.gz",            ":")
-print("Loaded {} structures into FullStructureList".format(len(FullStructureList)))
-
-
-# In[10]:
 
 
 # Input parameter important notes:
@@ -230,7 +228,35 @@ print("Loaded {} structures into FullStructureList".format(len(FullStructureList
 # 1. What I need to still do today is just convert reference to direct names to references to the s. names  
 # 2. Implement that structure filename choice from commandline
 
+# In[10]:
+
+
+TimeBeforeLoadStructures= time.time()
+from ase.db import connect
+db = connect('../data/distorted_propanol.db')
+# FullStructureList = db.get()
+FullStructureList = []
+for row in db.select():
+    FullStructureList.append(db.get_atoms(id = row.id))
+# FullStructureList = read("../data/distorted_propanol.extxyz.gz", ":")#, ":{}".format(s.n_structs))
+# FullStructureList = read("../data/C7O2H10.extxyz.gz",            ":")
+TimeAfterLoadStructures= time.time()
+print("Loaded {} structures into FullStructureList. This took {:.2f} seconds".format(len(FullStructureList), TimeAfterLoadStructures - TimeBeforeLoadStructures))
+
+
 # In[11]:
+
+
+# Maybe most efficient iof we can avoid using atoms objects all togethers
+
+# If no db exists, write the db or give the option
+# import ase.db
+# db = ase.db.connect('../data/distorted_propanol.db')
+# for ats in FullStructureList:
+#     db.write(ats)
+
+
+# In[12]:
 
 
 import json
@@ -265,7 +291,6 @@ s = SettingsNamespace(*settings_dict.values())
 # from ase.build import molecule
 # StructureList = generate_md_traj(from_diatomic=False, structure=molecule("CH3CH2OH"), temperature=s.temp, nsteps=s.n_structs, md_type = "VelocityVerlet", calc_type=s.energy_calculator, md_seed= s.md_seed, time_step=.05)
 
-print("s.n_structs =",  s.n_structs)
 # 2000 distorted propanols (librascal structures)
 #   Forces included
 #StructureList = read("../data/distorted_propanol.extxyz.gz", ":{}".format(s.n_structs))
@@ -364,31 +389,11 @@ else:
 TimeBeforeSparsification = time.time()     
 SparsifySoapsOutput = SparsifySoaps(train_soaps = train_sps_full, test_soaps = test_sps_full, train_energies=train_ens, sparsify_samples=s.sparse_gpflow, 
                                     n_samples=s.n_sparse, sparsify_features=s.sparse_features, n_features=s.n_sparse_features, selection_method="PCovCUR",
-                                    score_tolerance=1e-5, score_threshold=1e-5, iterative_selection=False) 
+                                    score_tolerance=1e-5, score_threshold=1e-5, iterative_selection=False, plot_importances=False) 
 train_sps, sparse_train_sps, test_sps = SparsifySoapsOutput
 TimeAfterSparsification = time.time()
 
 print("Sparsification time = ", TimeAfterSparsification - TimeBeforeSparsification)
-
-
-# In[18]:
-
-
-plot_importances = False
-if plot_importances and s.sparse_gpflow:
-#     feature_scores = feature_selector._compute_pi(train_sps_full, train_ens)
-    feature_scores = feature_selector.score(train_sps)
-#     sample_scores = sample_selector._compute_pi(train_sps_full, train_ens)
-    sample_scores = sample_selector.score(train_sps)
-
-    fig, axs = plt.subplots(ncols = 2, figsize=(12, 5))
-
-    axs[0].plot(np.sort(feature_scores)[::-1])
-    axs[0].set_ylabel("Feature Scores")
-    axs[1].plot(np.sort(sample_scores)[::-1] )
-    axs[1].set_ylabel("Sample Scores")
-    for ax in axs:
-        ax.set_ylim(bottom=0)
 
 
 # Reshape energies, soaps, etc so that local data can be separated
@@ -404,7 +409,7 @@ if plot_importances and s.sparse_gpflow:
 # * loss/error function
 # * optimizer
 
-# In[19]:
+# In[42]:
 
 
 # Note: I still need to add the Tikhonov regularization term for loss to make the mse equivalent to negative log likelihood
@@ -449,7 +454,7 @@ def predict_energies_from_weights(c, soaps_old, soaps_new, degree):
 
 # GPFlow test with many data points
 
-# In[20]:
+# In[43]:
 
 
 # Initialize kernels and model hyperparameters
@@ -585,7 +590,7 @@ else:
 train_sps_j_i = tf.Variable(train_sps[:batch_size], shape=(batch_size, train_sps.shape[-1]), dtype=s.dtype, trainable=False )
 train_ens_j_i = tf.Variable(train_ens[:batch_size], shape=(batch_size, 1), dtype=s.dtype, trainable=False ) 
 if s.sparse_gpflow:
-    if len(sparse_train_sps) >= batch_size:
+    if sparse_train_sps.shape[0] >= batch_size:
         print("Warning: Batch size is not greater than sparse soap size.\nThis may cause errors in the predict_f function which assumes the inducing points to be fewer than the data points.")
     if s.my_priority == "efficiency":
         gpr_model = gpflow.models.SVGP( kernel=kernel, likelihood=gpflow.likelihoods.Gaussian(),  inducing_variable=sparse_train_sps)
@@ -723,7 +728,9 @@ if s.sparse_gpflow:
         print("Alert: {} prediction approach not implemented for sparse model. Using alpha approach instead.".format(s.prediction_calculation))
         trained_weights = gpr_model.posterior().alpha
     elif s.prediction_calculation == "alpha":
+        print("Attempting to calculate trained weights using alpha method for sparse gpr model.")
         trained_weights = gpr_model.posterior().alpha
+        print("Successfully calculated trained weights using alpha method for sparse gpr model.")
 else:
     if s.prediction_calculation in ("direct", "cholesky"):
         KNN = gpr_model.kernel(train_sps)
@@ -753,7 +760,6 @@ with tf.GradientTape(watch_accessed_variables=False) as tape_sps:
         if s.sparse_gpflow:
             predict_ens = tf.reshape( predict_energies_from_weights(trained_weights, sparse_train_sps, test_sps, degree), [-1,1])
         else:
-            print("Acknowledge direct")
             predict_ens = tf.reshape( predict_energies_from_weights(trained_weights,        train_sps, test_sps, degree), [-1,1])
 
 test_ens_rescaled = ens_scaler.inverse_transform(test_ens)
@@ -771,12 +777,6 @@ if s.use_forces:
 
 TimeAfterPrediction = time.time()
 
-
-
-# In[21]:
-
-
-print(s.prediction_calculation, degree_init, predict_ens.numpy()[0,0])
 
 
 # In[22]:
@@ -978,7 +978,17 @@ plot_errors(model_description = "gpflow model",
             global_ens=test_global_ens,   predicted_global_ens= predict_global_ens,
             local_ens= test_ens_rescaled, predicted_local_ens = predict_ens_rescaled,
             color="mediumseagreen", predicted_stdev = None, n_atoms=n_atoms )
-#plt.savefig("../media/librascal_database_local_energy_learning_gpflow_polynomial_kernel")
+
+settings_string = ""
+important_settings = ["nmax", "lmax", "rcut", "n_structs", "n_sparse", "n_epochs"]
+for key, value in settings_dict.items():
+    if key in important_settings:
+        settings_string += "_" +str(key) + "_" + str(value)
+import datetime as dt 
+today = dt.datetime.today()
+date_string = "_{:02d}_{:02d}_{:d}".format(today.month, today.day, today.year)
+energy_results_title = "energy_results" + date_string + settings_string
+plt.savefig("../results/" + energy_results_title)
 
 
 # In[27]:
@@ -1009,4 +1019,3 @@ if s.use_forces:
             pass    
 
     #plt.savefig("../media/librascal_database_local_energy_force_learning")
-
