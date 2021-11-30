@@ -15,6 +15,7 @@ from ase import units
 from ase.io import read
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 import base64
 
 def generate_unique_id():
@@ -48,6 +49,7 @@ def make_diatomic(element = 'N', verbose=False, bond_length=1.1, calc_type="EMT"
         
         element_full = (element_names[element] if element in element_names else element)
         
+        print("According to {} calculator:".format(calc_type))
         print('%s atom energy: %5.2f eV' % (element_full, e_atom))
         print('%s molecule energy: %5.2f eV' % (element_full, e_molecule))
         print('Atomization energy: %5.2f eV' % -e_atomization)
@@ -86,17 +88,19 @@ def make_optimized_diatomic(element = "N", optimizer_type="MDMin", fmax=0.0001, 
     
     
 
-def print_md_progress(molecule, i):
+def print_md_progress(molecule, i, is_diatomic=False):
     epot = molecule.get_potential_energy() / len(molecule)
     ekin = molecule.get_kinetic_energy() / len(molecule)
-    print('Step %2.0f: Energy per atom: Epot = %.3feV  Ekin = %.3feV (T=%3.0fK) Etot = %.3feV' 
-          % (i, epot, ekin, ekin / (2.5 * units.kB), epot + ekin))
+    if is_diatomic:
+        print('Step %2.0f: Energy per atom: Epot = %.3feV  Ekin = %.3feV (T=%3.0fK) Etot = %.3feV' 
+              % (i, epot, ekin, ekin / (2.5 * units.kB), epot + ekin))
+    else:
+        print('Step %2.0f: Energy per atom: Epot = %.3feV  Ekin = %.3feV  Etot = %.3feV' 
+              % (i, epot, ekin,  epot + ekin))
 
 def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=10, md_type="VelocityVerlet", time_step=1, bond_length=1.1,
-                           temperature=300, verbose = False, print_step_size = 10, calc_type="EMT", preoptimize=True, return_traj_file = False, md_seed=1):
-    # It is usually most convenient to pass the total size of the trajectory you want which is the number of steps + 1
-    # nsteps, the generate_md_traj parameter, refers to the total trajectory size whereas nsteps, the local generate_md_traj variable, refers to the number of md steps
-    nsteps -= 1
+                     temperature=300, verbose = False, print_step_size = 10, calc_type="EMT", preoptimize=True, return_traj_file = False,
+                     md_seed=1, jitter=0, plot_energies="default", parent_directory="../"):
     
     rand.seed(md_seed)
     if structure is None and from_diatomic == False:
@@ -109,20 +113,24 @@ def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=
             molecule = make_diatomic(element = element, verbose=verbose, bond_length=bond_length, calc_type=calc_type)
         chemical_formula = "{}2".format(element)
         if verbose:
-            print("Now generating MD trajectory of {} {}₂ molecules at {:.0f} K using {} dynamics".format(nsteps, element, temperature, md_type ))
+            print("Now generating MD trajectory of {} {}₂ molecules at {:.0f} K using {} dynamics and the {} calculator".format(nsteps, element, temperature, md_type, calc_type))
     elif structure is not None:
         molecule = structure
         chemical_formula = molecule.get_chemical_formula()
         molecule = assign_calc(molecule, calc_type)
+        if jitter:
+            jittered_positions = molecule.positions + np.random.normal(0, jitter, molecule.positions.shape )
+            molecule.set_positions(jittered_positions)
+
         if verbose:
-            print("Now generating MD trajectory of {} {} structures at {:.0f} K using {} dynamics".format(nsteps, chemical_formula, temperature, md_type ))
+            print("Now generating MD trajectory of {} {} structures at {:.0f} K using {} dynamics and the {} calculator".format(nsteps, chemical_formula, temperature, md_type, calc_type ))
     else:
         print("Did not understand instructions for generating trajectory.")
         return
     
     fid = generate_unique_id()
 
-    traj_filename = "../data/" + chemical_formula + "_" + md_type + "_" + fid + ".traj"
+    traj_filename = parent_directory + "/data/" + chemical_formula + "_" + md_type + "_" + fid + ".traj"
     
     MaxwellBoltzmannDistribution(molecule, temperature_K=temperature)# * (2.5 * units.kB))
     
@@ -135,27 +143,39 @@ def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=
     else:
         print("This function does not currently support the molecular dynamics type '{}'".format(md_type))
         return
-    
-    if verbose:
-        step_i = 0
-        remaining_steps = nsteps
-        while step_i <= nsteps - print_step_size:
-            md.run(print_step_size)
-            step_i += print_step_size
-            print_md_progress(molecule, step_i)
-        if step_i < nsteps:
-            md.run(nsteps - step_i)
-            step_i = nsteps
-            print_md_progress(molecule, step_i)
-    else:
-        md.run(nsteps)
+    # It is usually most convenient to pass the total size of the trajectory you want which is the number of steps + 1
+    # nsteps, the generate_md_traj parameter, refers to the total trajectory size whereas nsteps, the local generate_md_traj variable, refers to the number of md steps
+    nsteps -= 1
+ 
+    try:
+        if verbose:
+            step_i = 0
+            remaining_steps = nsteps
+            while step_i <= nsteps - print_step_size:
+                md.run(print_step_size)
+                step_i += print_step_size
+                print_md_progress(molecule, step_i, from_diatomic)
+            if step_i < nsteps:
+                md.run(nsteps - step_i)
+                step_i = nsteps
+                print_md_progress(molecule, step_i, from_diatomic)
+        else:
+            md.run(nsteps)
+    except NotImplementedError as err:
+        acceptable_calcs = ["Morse", "LJ", "EMT"]
+        acceptable_calcs.remove(calc_type)
+        print(str(err) + ". Other md calculator options are: ", acceptable_calcs)
+        return "MD failed"
     
     if return_traj_file:
         return traj_filename
     else:
         atoms_traj_list = read(traj_filename,index=':')
 
-        if verbose:
-            plt.plot([atoms.get_kinetic_energy()/len(atoms)/(2.5*units.kB) for atoms in atoms_traj_list])
+        if plot_energies == "on" or (verbose and plot_energies != "off"):
+            if from_diatomic:
+                plt.plot([atoms.get_kinetic_energy()/len(atoms)/(2.5*units.kB) for atoms in atoms_traj_list])
+            else:
+                plt.plot([atoms.get_kinetic_energy()/len(atoms) for atoms in atoms_traj_list])
 
         return atoms_traj_list

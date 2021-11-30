@@ -1,19 +1,162 @@
 from sklearn.model_selection import train_test_split
 import numpy as np
+import tensorflow as tf
+import gpflow
+from gpflow.kernels import SquaredExponential, Polynomial
+
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-from skcosmo.sample_selection import CUR as CURSample
-from skcosmo.sample_selection import PCovCUR as PCovCURSample
-from skcosmo.feature_selection import CUR as CURFeature
-from skcosmo.feature_selection import PCovCUR as PCovCURFeature
+try:
+    from skcosmo.sample_selection import CUR as CURSample
+    from skcosmo.sample_selection import PCovCUR as PCovCURSample
+    from skcosmo.feature_selection import CUR as CURFeature
+    from skcosmo.feature_selection import PCovCUR as PCovCURFeature
+except:
+    print("Unable to import necessary libraries. Make sure you are in the minigap conda environment.")
+    exit()
+
+from ase.io import read
+from ase.collections import g2
+from ase.build import molecule
+import os.path as path
+import pandas as pd #I use this for printing a table. We can replace this to make the code more portable
+import time
+
 # ----------------------------------------------------------------------------
 import sys
 sys.path.append('../code')
 from Generate_Descriptors import get_dscribe_descriptors
+from Molecular_Dynamics import generate_md_traj
 # ----------------------------------------------------------------------------
 no_forces_string = "Not Using Forces"
-# ----------------------------------------------------------------------------
 
+
+# ------------------------- not specific to miniGAP --------------------------
+
+
+def in_notebook():
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
+    
+
+    
+def PrintNoScientificNotation(*x):
+    np.set_printoptions(suppress=True) # Do not print in scientific notation
+    print(*x)
+    np.set_printoptions(suppress=False)
+    
+       
+def TickTock(func, *args, **kwargs):
+    tick = time.time()
+    func_output = func(*args, **kwargs)
+    tock = time.time()
+    return func_output, tock - tick
+
+# These plotting settings make graphs easier to read
+# This is a very clunky way to do this so I want to move this soon, but haven't had much of a chance
+
+SMALL_SIZE = 11
+MEDIUM_SIZE = 13
+BIG_SIZE = 15
+
+plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+plt.rc('axes', titlesize=BIG_SIZE)       # fontsize of the axes title
+plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+plt.rc('figure', titlesize=BIG_SIZE)     # fontsize of the figure title
+# ----------------------------- specific to miniGAP --------------------------
+
+def import_structures(filename, n_structs, verbose=False, in_notebook=True, miniGAP_parent_directory = "../", by_indices=False, indices=[]):
+    if "/" not in filename:
+        filename = miniGAP_parent_directory + "data/" + filename
+    filetype = "." + filename.split("/")[-1].split(".", 1)[1]
+    if by_indices:
+        StructureList = []
+        for index in indices:
+            StructureList.append(read(filename, index))
+        if verbose:
+            if len(indices) == 1:
+                print("Imported structure #{} from {}.".format(indices[0], filename))
+            else:
+                print("Imported {} structures from {} with indices: {}".format(len(indices), filename, indices) )
+    elif filetype in [".xyz", ".extxyz", ".extxyz.gz", ".xyz.gz"]:
+        print("If you plan to use miniGAP with this dataset more than once, it is recommended that you convert this file to a .db file. \
+        \nThe conversion may be slow, but this will save significant time each run of miniGAP thereafter. \
+        \nTo perform this conversion, run the command 'code/convert_to_db.py {}' from the minigap parent directory".format(filename))
+        if verbose:
+            print("Imported the first {} structures from {} as our dataset.\
+            \nIt would be better to drawn on structures evenly from throughout your full dataset instead of taking only from the beginning.\
+            \nHowever, it would be prohibitively slow to import all structures from a file other than an ASE database file during every miniGAP run.\
+            \nThis is partially why conversion to a .db is recommended.".format(n_structs, filename))
+        StructureList = read(filename, ":{}".format(n_structs))
+    elif filetype == ".db":
+        # from ase.db import connect
+        # db = connect(filename)
+        # FullStructureList = []
+        # for row in db.select():
+        #     FullStructureList.append(db.get_atoms(id = row.id))
+        FullStructureList = read(filename, ":")
+        StructureList = FullStructureList[::len(FullStructureList)//n_structs][:n_structs]
+        if verbose:
+            print("Imported {} structures from {}. Structures were taken uniformly from throughout dataset which contains {} total structures.".format(len(StructureList), filename, len(FullStructureList)))
+    else:
+        print("Do not currently recognize filetype {}. However, it is possible ASE can read this filetype. \
+        \nIf so, modify import_structures function to enable import from {}.".format(filetype, filename))
+        
+        if not in_notebook:
+            exit()
+    return StructureList
+
+
+def GenerateMDTrajForMiniGAP(structure, from_diatomic, md_settings, miniGAP_parent_directory="../"):
+    return generate_md_traj(structure=structure, from_diatomic=from_diatomic, preoptimize=False, bond_length=md_settings.diatomic_bond_length, 
+                            element=md_settings.diatomic_element, temperature=md_settings.md_temp, nsteps=md_settings.n_structs,
+                            md_type = md_settings.md_algorithm, calc_type=md_settings.md_energy_calculator, md_seed= md_settings.md_seed, 
+                            time_step=md_settings.md_time_step, verbose=md_settings.verbose, print_step_size=md_settings.n_structs/10, 
+                            plot_energies="off", parent_directory=miniGAP_parent_directory)
+
+def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directory):
+    if structure_settings.structure_file in (None, "None", ""):
+        if structure_settings.chemical_formula in (None, "None", ""):
+            # Diatomic molecule in MD trajectory
+            struct_list = GenerateMDTrajForMiniGAP(structure=None, from_diatomic=True, md_settings=structure_settings, miniGAP_parent_directory=miniGAP_parent_directory)
+
+            # Useful for debugging purposes
+            # Diatomic molecule with evenly spaced bond lengths
+            # struct_list = [make_diatomic(element = structure_settings.diatomic_element, verbose=False, bond_length=L, \
+            # calc_type=structure_settings.md_energy_calculator) for L in np.linspace(.6,1.8, structure_settings.n_structs)]
+
+        else:
+            # ASE creates this g2 collection 'lazily' so we must call each member before we can get a complete list of names
+            g2_list = [m for m in g2]
+            del g2_list
+            if structure_settings.chemical_formula in g2._names:
+                struct_list = GenerateMDTrajForMiniGAP(structure=molecule(structure_settings.chemical_formula), from_diatomic=False, md_settings=structure_settings, 
+                                                       miniGAP_parent_directory=miniGAP_parent_directory)
+            else: 
+                # https://aip.scitation.org/doi/10.1063/1.473182
+                # https://wiki.fysik.dtu.dk/ase/ase/build/build.html#molecules
+                print("ASE does not recognize {}. Please choose from the g2 collection: {}".format(structure_settings.chemical_formula, g2._names))
+                if not in_notebook:
+                    exit()
+    else:
+        if structure_settings.molecular_dynamics:
+            starter_struct = import_structures(structure_settings.structure_file, structure_settings.n_structs, structure_settings.verbose, in_notebook, miniGAP_parent_directory, 
+                                               by_indices=True, indices=[structure_settings.md_index])[0]
+            struct_list = GenerateMDTrajForMiniGAP(structure=starter_struct, from_diatomic=False, md_settings=structure_settings, miniGAP_parent_directory=miniGAP_parent_directory)
+        else:
+            struct_list = import_structures( structure_settings.structure_file, structure_settings.n_structs, structure_settings.verbose, in_notebook, miniGAP_parent_directory)
+    return struct_list 
 
 
 def PrepareDataForTraining(sp_list,
@@ -270,3 +413,169 @@ def SparsifySoaps(train_soaps, train_energies= [], test_soaps = [], sparsify_sam
             ax.set_ylim(bottom=0)
     
     return train_soaps, representative_train_soaps, test_soaps
+
+
+# Note: I still need to add the Tikhonov regularization term for hyperparameter training loss to make the mse equivalent to negative log likelihood
+
+# @tf.function(autograph=False, experimental_compile=False)
+def mse(y_predict, y_true):
+    print("Printing in mse (not compiled)")
+    return tf.math.reduce_mean(tf.math.squared_difference(y_predict, y_true))
+
+# @tf.function(autograph=False, experimental_compile=False)
+def mse_2factor(y1_predict, y1_true, weight1, y2_predict, y2_true, weight2):
+    mse1 = mse(y1_predict, y1_true)
+    mse2 = mse(y2_predict, y2_true)*3
+
+    return mse1 * weight1 + mse2 * weight2
+
+#@tf.function(autograph=False, experimental_compile=False)
+def train_hyperparams_without_forces(model, valid_soap, valid_energy, optimizer):
+    with tf.GradientTape() as tape:
+        predict_energy = model.predict_f(valid_soap)[0]
+        tf.print("predict energies = ", predict_energy[:3])
+        my_mse = mse(predict_energy, valid_energy)
+    gradients = tape.gradient(my_mse, model.trainable_variables)
+    tf.print("gradients = ", gradients)
+    optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+    print("TRACING train_hyperparams_without_forces")
+    return my_mse
+
+# @tf.function(autograph=False, experimental_compile=False)
+def predict_energies_from_weights(c, soaps_old, soaps_new, degree):
+    k = tf.math.pow( tf.tensordot(soaps_old, tf.transpose(soaps_new), axes=1), degree )
+    return tf.linalg.matmul(c, k, transpose_a=True)
+
+
+def pick_kernel(kernel_type, **kwargs):
+    default_kwargs = {
+        # exponentiated_quadratic kernel hyperparameters
+        "amplitude":1,
+        "length_scale":1,
+        # polynomial kernel hyperparameters
+        "amplitude":1,
+        "degree":2,
+        "degree_trainable":False,
+        "relative_offset":0,
+        "offset_trainable":False,
+        #
+        "dtype":"float64",
+        "verbose":False,
+    }
+    
+    kernel_settings = default_kwargs
+    for kw, arg in kwargs.items():
+        if kw in default_kwargs.keys():
+            kernel_settings[kw] = arg
+        else:
+            print("Do not recognize pick_kernel kwarg '{}'. Valid pick_kernel kwargs include {}.".format(kw, default_kwargs.keys()))
+    
+    if kernel_type == "exponentiated_quadratic":
+        # gpflow.readthedocs.io/en/master/gpflow/kernels/index.html#gpflow-kernels-squaredexponential
+        # k(r) = amplitude exp{-(x-y)²/(2 length_scale²)}
+        # = gpflow.Parameter()
+        amplitude = gpflow.Parameter(kernel_settings["amplitude"], dtype=kernel_settings["dtype"], name="kernel_amplitude")
+        len_scale = gpflow.Parameter(kernel_settings["length_scale"], dtype=kernel_settings["dtype"], name="kernel_len_scale")
+        kernel = SquaredExponential(variance=amplitude, lengthscales=len_scale)
+        if kernel_settings["verbose"]:
+            print("Using an exponentiated quadratic kernel (aka a squared exponential kernel)." )
+        return kernel
+    elif kernel_type == "polynomial":
+        # gpflow.readthedocs.io/en/master/gpflow/kernels/index.html#gpflow-kernels-polynomial
+        # k(x, y) = amplitude (xy + relative_offset)ᵈ
+        # k(x, y) = (variance * xy + offset)ᵈ
+        # variance = amplitude^(1/d), offset = relative_offset * variance
+        
+        variance = kernel_settings["amplitude"] ** (1/ kernel_settings["degree"])
+        offset = kernel_settings["relative_offset"] * variance
+        
+        # We cannot make offset identically 0
+        # This is because gpflow interprets it as a gpflow.Parameter and transforms it with a logarithm
+        # However we usually do not want it so I make its magnitude as smallest as possible by default
+        # gpflow.readthedocs.io/en/master/_modules/gpflow/kernels/linears.html#Polynomial
+        if not offset:
+            offset = np.finfo(kernel_settings["dtype"]).tiny
+        variance = gpflow.Parameter(variance, dtype=kernel_settings["dtype"], name="kernel_variance")
+        offset = gpflow.Parameter(offset, dtype=kernel_settings["dtype"], name="kernel_offset")
+        degree =  gpflow.Parameter(kernel_settings["degree"], dtype=kernel_settings["dtype"], name="kernel_degree")
+        kernel = Polynomial(variance=variance, offset=offset, degree=degree)
+        gpflow.set_trainable(kernel.offset, kernel_settings["offset_trainable"])
+        gpflow.set_trainable(kernel.degree, kernel_settings["degree_trainable"])
+        if kernel_settings["verbose"]:
+            print("Using a degree {} polynomial kernel.".format(kernel_settings["degree"]) )
+            if kernel_settings["degree"] != 1:
+                print("Alert: Double check the training validity for degree =/= 1 when not using predict_f".format(kernel_settings["degree"]))
+
+        return kernel
+    else:
+        print("Warning: Do not recognize kernel_type={}".format(kernel_type))
+
+
+def plot_errors(global_ens, predicted_global_ens, model_description = "model", 
+                use_local=False, local_ens=[], predicted_local_ens=[],
+                color="mediumseagreen", predicted_stdev=None, n_atoms=10):
+   
+    global_ens, predicted_global_ens, local_ens, predicted_local_ens = np.array(global_ens), np.array(predicted_global_ens), np.array(local_ens), np.array(predicted_local_ens)
+    
+    if use_local:
+        fig, axs = plt.subplots(figsize=(20,4.5), ncols=3)
+    else:
+        fig, axs = plt.subplots(figsize=(12, 5), ncols=2)
+    
+    global_r2 = np.corrcoef(global_ens, predicted_global_ens)[0,1]
+    axs[0].set_title("Predicted Global Energy vs True Global Energy\nfor {}".format(model_description))
+    axs[0].set_xlabel("True Global Energy ")
+    axs[0].set_ylabel("Predicted Global Energy ")
+    axs[0].plot(global_ens, global_ens, "-", c="k")
+    if type(predicted_stdev) != type(None):
+        axs[0].errorbar(global_ens, predicted_global_ens, yerr=predicted_stdev, fmt="o", c=color, ms=3, label= "mean -/+ std")
+        axs[0].legend()
+    else:
+        axs[0].plot(global_ens, predicted_global_ens ,"o", c=color, ms=3)
+    axs[0].text(0.25, 0.75, "r2 = {:.3f}".format(global_r2), horizontalalignment='center', verticalalignment='center', transform=axs[0].transAxes)
+    
+
+    
+    global_errors = abs(global_ens-predicted_global_ens)/n_atoms
+    errors = abs(predicted_local_ens-local_ens) if use_local else global_errors
+    
+    # For generating tickmarks on axes
+    max_err_exp = max(-1, int(np.ceil(np.log10(max(global_errors)))), int(np.ceil(np.log10(max(errors)))) )
+    min_err_exp = min(-5, int(np.ceil(np.log10(min(global_errors)))), int(np.ceil(np.log10(min(errors)))) )
+
+    rmse = np.sqrt(np.mean(errors ** 2))
+    mae = np.mean(errors)
+    max_abs_error = np.max(errors)
+    error_dataframe = pd.DataFrame(data={"Local Energy":[rmse, mae, max_abs_error]}, index = ["Root Mean Squared Error", "Mean Absolute Error", "Max Absolute Error"])
+    #print("For LOCAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(rmse, mae, max_abs_error))
+
+    global_rmse = np.sqrt(np.mean(global_errors ** 2))
+    global_mae = np.mean(global_errors)
+    global_max_abs_error = np.max(global_errors)
+    error_dataframe["Global Energy"] = [global_rmse, global_mae, global_max_abs_error]
+    #print("For GLOBAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(global_rmse, global_mae, global_max_abs_error))
+    if in_notebook():
+        display(error_dataframe)
+    else:
+        print(error_dataframe)
+    
+    logbins = np.logspace(min_err_exp, max_err_exp, 4*(max_err_exp - min_err_exp))
+    logticklabels = np.logspace(min_err_exp, max_err_exp, max_err_exp - min_err_exp + 1)
+    axs[1].hist(global_errors, bins=logbins, color=color)
+    axs[1].set_xscale('log')
+    axs[1].set_xticks(logticklabels)
+    axs[1].set_xticklabels(logticklabels)
+    axs[1].set_xlabel("Error in Predicted Global Energy/Atom")
+    axs[1].set_ylabel("Frequency")
+    axs[1].set_title("Error Histogram of Global Energy Predictions\nfor {}".format(model_description))
+    
+    if use_local:
+        logbins = np.logspace(min_err_exp, max_err_exp, 4*(max_err_exp - min_err_exp))
+        logticklabels = np.logspace(min_err_exp, max_err_exp, max_err_exp - min_err_exp + 1)
+        axs[2].hist(errors, bins=logbins, color=color)
+        axs[2].set_xscale('log')
+        axs[2].set_xticks(logticklabels)
+        axs[2].set_xticklabels(logticklabels)
+        axs[2].set_xlabel("Error in Predicted Local Energy/Atom")
+        axs[2].set_ylabel("Frequency")
+        axs[2].set_title("Error Histogram of Local Energy Predictions\nfor {}".format(model_description))
