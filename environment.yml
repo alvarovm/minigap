@@ -10,4 +10,5 @@ dependencies:
   - dscribe
   - tqdm
   - gpflow
+  - skcosmo
 
