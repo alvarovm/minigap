@@ -14,7 +14,7 @@
     "diatomic_bond_length" : 1.2,
     "n_structs" : 1000, 
     "use_self_energies" : false, 
-    "energy_encoding" : "info", 
+    "energy_encoding" : "normal", 
     "energy_keyword" : "U0", 
     "rcut" : 6, 
     "nmax" : 12, 
