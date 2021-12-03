@@ -6,20 +6,16 @@ from gpflow.kernels import SquaredExponential, Polynomial
 
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-try:
-    from skcosmo.sample_selection import CUR as CURSample
-    from skcosmo.sample_selection import PCovCUR as PCovCURSample
-    from skcosmo.feature_selection import CUR as CURFeature
-    from skcosmo.feature_selection import PCovCUR as PCovCURFeature
-except:
-    print("Unable to import necessary libraries. Make sure you are in the minigap conda environment.")
-    exit()
+from skcosmo.sample_selection import CUR as CURSample
+from skcosmo.sample_selection import PCovCUR as PCovCURSample
+from skcosmo.feature_selection import CUR as CURFeature
+from skcosmo.feature_selection import PCovCUR as PCovCURFeature
 
 from ase.io import read
 from ase.collections import g2
 from ase.build import molecule
 import os.path as path
-import pandas as pd #I use this for printing a table. We can replace this to make the code more portable
+import pandas as pd #I use this for printing a table. Place in try except eventually
 import time
 
 # ----------------------------------------------------------------------------
@@ -34,7 +30,7 @@ no_forces_string = "Not Using Forces"
 # ------------------------- not specific to miniGAP --------------------------
 
 
-def in_notebook():
+def check_if_in_notebook():
     try:
         shell = get_ipython().__class__.__name__
         if shell == 'ZMQInteractiveShell':
@@ -61,7 +57,7 @@ def TickTock(func, *args, **kwargs):
     return func_output, tock - tick
 
 # These plotting settings make graphs easier to read
-# This is a very clunky way to do this so I want to move this soon, but haven't had much of a chance
+# This is a very clunky way to do this and I want to do it more elegantly (suggestions welcome)
 
 SMALL_SIZE = 11
 MEDIUM_SIZE = 13
@@ -515,14 +511,17 @@ def plot_errors(global_ens, predicted_global_ens, model_description = "model",
                 use_local=False, local_ens=[], predicted_local_ens=[],
                 color="mediumseagreen", predicted_stdev=None, n_atoms=10):
    
-    global_ens, predicted_global_ens, local_ens, predicted_local_ens = np.array(global_ens), np.array(predicted_global_ens), np.array(local_ens), np.array(predicted_local_ens)
+    global_ens, predicted_global_ens = np.array(global_ens), np.array(predicted_global_ens)
+    local_ens, predicted_local_ens = np.array(local_ens).flatten(), np.array(predicted_local_ens).flatten()
+    global_r2 = np.corrcoef(global_ens, predicted_global_ens)[0,1]
+    local_r2 = np.corrcoef(local_ens, predicted_local_ens)[0,1]
     
     if use_local:
         fig, axs = plt.subplots(figsize=(20,4.5), ncols=3)
     else:
         fig, axs = plt.subplots(figsize=(12, 5), ncols=2)
     
-    global_r2 = np.corrcoef(global_ens, predicted_global_ens)[0,1]
+    
     axs[0].set_title("Predicted Global Energy vs True Global Energy\nfor {}".format(model_description))
     axs[0].set_xlabel("True Global Energy ")
     axs[0].set_ylabel("Predicted Global Energy ")
@@ -546,15 +545,15 @@ def plot_errors(global_ens, predicted_global_ens, model_description = "model",
     rmse = np.sqrt(np.mean(errors ** 2))
     mae = np.mean(errors)
     max_abs_error = np.max(errors)
-    error_dataframe = pd.DataFrame(data={"Local Energy":[rmse, mae, max_abs_error]}, index = ["Root Mean Squared Error", "Mean Absolute Error", "Max Absolute Error"])
+    error_dataframe = pd.DataFrame(data={"Local Energy":[rmse, mae, max_abs_error, local_r2]}, index = ["Root Mean Squared Error", "Mean Absolute Error", "Max Absolute Error", "r²"])
     #print("For LOCAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(rmse, mae, max_abs_error))
 
     global_rmse = np.sqrt(np.mean(global_errors ** 2))
     global_mae = np.mean(global_errors)
     global_max_abs_error = np.max(global_errors)
-    error_dataframe["Global Energy"] = [global_rmse, global_mae, global_max_abs_error]
+    error_dataframe["Global Energy"] = [global_rmse, global_mae, global_max_abs_error, global_r2]
     #print("For GLOBAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(global_rmse, global_mae, global_max_abs_error))
-    if in_notebook():
+    if check_if_in_notebook():
         display(error_dataframe)
     else:
         print(error_dataframe)
