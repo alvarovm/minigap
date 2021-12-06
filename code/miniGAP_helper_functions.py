@@ -23,54 +23,21 @@ import sys
 sys.path.append('../code')
 from Generate_Descriptors import get_dscribe_descriptors
 from Molecular_Dynamics import generate_md_traj
+from general_purpose_helper_functions import make_unique_directory
 # ----------------------------------------------------------------------------
 no_forces_string = "Not Using Forces"
 
 
-# ------------------------- not specific to miniGAP --------------------------
+def make_miniGAP_results_subdirectory(settings, date, miniGAP_parent_directory="../"):
+    title = settings.title
+    ideal_subdirectory_name = title if title != None else "results"
+    if settings.append_date_to_title:
+        ideal_subdirectory_name += date
+    ideal_directory_name = miniGAP_parent_directory + "results/" + ideal_subdirectory_name
+    unique_directory_name = make_unique_directory(ideal_directory_name, identifier_type='counter', verbose=settings.verbose)
+    return unique_directory_name
 
 
-def check_if_in_notebook():
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False      # Probably standard Python interpreter
-    
-
-    
-def PrintNoScientificNotation(*x):
-    np.set_printoptions(suppress=True) # Do not print in scientific notation
-    print(*x)
-    np.set_printoptions(suppress=False)
-    
-       
-def TickTock(func, *args, **kwargs):
-    tick = time.time()
-    func_output = func(*args, **kwargs)
-    tock = time.time()
-    return func_output, tock - tick
-
-# These plotting settings make graphs easier to read
-# This is a very clunky way to do this and I want to do it more elegantly (suggestions welcome)
-
-SMALL_SIZE = 11
-MEDIUM_SIZE = 13
-BIG_SIZE = 15
-
-plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
-plt.rc('axes', titlesize=BIG_SIZE)       # fontsize of the axes title
-plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
-plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
-plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
-plt.rc('figure', titlesize=BIG_SIZE)     # fontsize of the figure title
-# ----------------------------- specific to miniGAP --------------------------
 
 def import_structures(filename, n_structs, verbose=False, in_notebook=True, miniGAP_parent_directory = "../", by_indices=False, indices=[]):
     if "/" not in filename:
@@ -415,7 +382,6 @@ def SparsifySoaps(train_soaps, train_energies= [], test_soaps = [], sparsify_sam
 
 # @tf.function(autograph=False, experimental_compile=False)
 def mse(y_predict, y_true):
-    print("Printing in mse (not compiled)")
     return tf.math.reduce_mean(tf.math.squared_difference(y_predict, y_true))
 
 # @tf.function(autograph=False, experimental_compile=False)
@@ -509,7 +475,7 @@ def pick_kernel(kernel_type, **kwargs):
 
 def plot_errors(global_ens, predicted_global_ens, model_description = "model", 
                 use_local=False, local_ens=[], predicted_local_ens=[],
-                color="mediumseagreen", predicted_stdev=None, n_atoms=10):
+                color="mediumseagreen", predicted_stdev=None, n_atoms=10, in_notebook=True):
    
     global_ens, predicted_global_ens = np.array(global_ens), np.array(predicted_global_ens)
     local_ens, predicted_local_ens = np.array(local_ens).flatten(), np.array(predicted_local_ens).flatten()
@@ -553,7 +519,7 @@ def plot_errors(global_ens, predicted_global_ens, model_description = "model",
     global_max_abs_error = np.max(global_errors)
     error_dataframe["Global Energy"] = [global_rmse, global_mae, global_max_abs_error, global_r2]
     #print("For GLOBAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(global_rmse, global_mae, global_max_abs_error))
-    if check_if_in_notebook():
+    if in_notebook:
         display(error_dataframe)
     else:
         print(error_dataframe)

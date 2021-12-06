@@ -1,46 +1,81 @@
 {
-    "verbose" : true,
-    "print_timings" : true, 
-    "structure_file" : "distorted_propenol.db",
-    "chemical_formula" : "CH3CO",
-    "molecular_dynamics" : false, 
-    "md_index" : 0,
-    "md_temp" : 0, 
-    "md_energy_calculator" : "EMT", 
-    "md_algorithm" : "VelocityVerlet",
-    "md_time_step" : 0.1,
-    "md_seed" : 1, 
-    "diatomic_element" : "O", 
-    "diatomic_bond_length" : 1.2,
-    "n_structs" : 1000, 
-    "use_self_energies" : false, 
-    "energy_encoding" : "normal", 
-    "energy_keyword" : "U0", 
-    "rcut" : 6, 
-    "nmax" : 12, 
-    "lmax" : 6, 
-    "smear" : 0.3, 
-    "attach_SOAP_center" : true, 
-    "is_periodic" : false, 
-    "sparse_gpflow" : false, 
-    "n_sparse" : 100, 
-    "sparse_features" : false, 
-    "n_sparse_features" : 200, 
-    "use_forces" : false, 
-    "scale_soaps" : false, 
-    "my_priority" : "consistency", 
-    "split_seed" : 2, 
-    "valid_split_seed" : 2, 
-    "tf_seed" : 2, 
-    "shuffle_seed" : 2, 
-    "kernel_type" : "polynomial", 
-    "train_fraction" : 0.9, 
-    "valid_fract" : 0.9, 
-    "batch_size_max" : 10000, 
-    "learn_rate" : 0.02, 
-    "n_epochs" : 100, 
-    "min_print_frequency" : 2, 
-    "prediction_calculation" : "predict_f", 
-    "dtype" : "float64", 
-    "no_forces_string" : "Not Using Forces"
+    "debugging_settings": {
+        "verbose": true,
+        "print_timings": true
+    },
+    "calculation_type_settings": {
+        "title" : "Test",
+        "make_output_files":true,
+        "append_date_to_title" : true, 
+        "use_forces": false,
+        "dtype": "float64"
+    },
+    "structure_dataset_settings": {
+        "structure_file_import_settings": {
+            "structure_file": "distorted_propenol.db",
+            "energy_encoding": "normal",
+            "energy_keyword": "U0",
+            "is_periodic": false
+        },
+        "ASE_generated_structure_settings": {
+            "chemical_formula": "CH3CO",
+            "diatomic_settings": {
+                "diatomic_element": "O",
+                "diatomic_bond_length": 1.2
+            }
+        },
+        "molecular_dynamics_settings": {
+            "molecular_dynamics": false,
+            "md_index": 0,
+            "md_temp": 0,
+            "md_energy_calculator": "EMT",
+            "md_algorithm": "VelocityVerlet",
+            "md_time_step": 0.1,
+            "md_seed": 1
+        },
+        "n_structs": 1000,
+        "split_seed": 2
+    },
+    "soap_descriptor_settings": {
+        "rcut": 6,
+        "nmax": 12,
+        "lmax": 6,
+        "smear": 0.3,
+        "attach_SOAP_center": true
+    },
+    "GPR_settings": {
+        "kernel_settings": {
+            "kernel_type": "polynomial"
+        },
+        "sparsity_settings": {
+            "sparse_gpflow": false,
+            "n_sparse": 100
+        },
+        "data_processing_settings": {
+            "label_processing_settings": {
+                "use_self_energies": false
+            },
+            "feature_processing_settings": {
+                "scale_soaps": false,
+                "sparse_features": false,
+                "n_sparse_features": 200
+            }
+        }
+    },
+    "hyperparameter_training_settings": {
+        "train_fraction": 0.9,
+        "valid_fract": 0.9,
+        "batch_size_max": 10000,
+        "learn_rate": 0.02,
+        "n_epochs": 2,
+        "min_print_frequency": 2,
+        "prediction_calculation": "predict_f",
+        "my_priority": "consistency",
+        "valid_split_seed": 2,
+        "shuffle_seed": 2,
+        "tf_seed": 2
+    },
+    "misc": {
+        "no_forces_string": "Not Using Forces"
+    }
 }
