@@ -18,13 +18,13 @@ import os.path as path
 import pandas as pd #I use this for printing a table. Place in try except eventually
 import time
 
-# ----------------------------------------------------------------------------
+# --------
 import sys
 sys.path.append('../code')
 from Generate_Descriptors import get_dscribe_descriptors
 from Molecular_Dynamics import generate_md_traj
 from general_purpose_helper_functions import make_unique_directory
-# ----------------------------------------------------------------------------
+# --------
 no_forces_string = "Not Using Forces"
 
 
@@ -81,18 +81,19 @@ def import_structures(filename, n_structs, verbose=False, in_notebook=True, mini
     return StructureList
 
 
-def GenerateMDTrajForMiniGAP(structure, from_diatomic, md_settings, miniGAP_parent_directory="../"):
+def GenerateMDTrajForMiniGAP(structure, from_diatomic, md_settings, miniGAP_parent_directory="../", traj_directory = "../data/"):
     return generate_md_traj(structure=structure, from_diatomic=from_diatomic, preoptimize=False, bond_length=md_settings.diatomic_bond_length, 
                             element=md_settings.diatomic_element, temperature=md_settings.md_temp, nsteps=md_settings.n_structs,
                             md_type = md_settings.md_algorithm, calc_type=md_settings.md_energy_calculator, md_seed= md_settings.md_seed, 
                             time_step=md_settings.md_time_step, verbose=md_settings.verbose, print_step_size=md_settings.n_structs/10, 
-                            plot_energies="off", parent_directory=miniGAP_parent_directory)
+                            plot_energies="off", parent_directory=miniGAP_parent_directory, traj_directory = traj_directory)
 
-def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directory):
+def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directory, output_directory="../results/"):
     if structure_settings.structure_file in (None, "None", ""):
         if structure_settings.chemical_formula in (None, "None", ""):
             # Diatomic molecule in MD trajectory
-            struct_list = GenerateMDTrajForMiniGAP(structure=None, from_diatomic=True, md_settings=structure_settings, miniGAP_parent_directory=miniGAP_parent_directory)
+            struct_list = GenerateMDTrajForMiniGAP(structure=None, from_diatomic=True, md_settings=structure_settings, 
+                                                   miniGAP_parent_directory=miniGAP_parent_directory, traj_directory=output_directory )
 
             # Useful for debugging purposes
             # Diatomic molecule with evenly spaced bond lengths
@@ -104,8 +105,9 @@ def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directo
             g2_list = [m for m in g2]
             del g2_list
             if structure_settings.chemical_formula in g2._names:
-                struct_list = GenerateMDTrajForMiniGAP(structure=molecule(structure_settings.chemical_formula), from_diatomic=False, md_settings=structure_settings, 
-                                                       miniGAP_parent_directory=miniGAP_parent_directory)
+                struct_list = GenerateMDTrajForMiniGAP(structure=molecule(structure_settings.chemical_formula), from_diatomic=False, 
+                                                       md_settings=structure_settings, miniGAP_parent_directory=miniGAP_parent_directory,
+                                                       traj_directory=output_directory )
             else: 
                 # https://aip.scitation.org/doi/10.1063/1.473182
                 # https://wiki.fysik.dtu.dk/ase/ase/build/build.html#molecules
@@ -116,7 +118,8 @@ def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directo
         if structure_settings.molecular_dynamics:
             starter_struct = import_structures(structure_settings.structure_file, structure_settings.n_structs, structure_settings.verbose, in_notebook, miniGAP_parent_directory, 
                                                by_indices=True, indices=[structure_settings.md_index])[0]
-            struct_list = GenerateMDTrajForMiniGAP(structure=starter_struct, from_diatomic=False, md_settings=structure_settings, miniGAP_parent_directory=miniGAP_parent_directory)
+            struct_list = GenerateMDTrajForMiniGAP(structure=starter_struct, from_diatomic=False, md_settings=structure_settings, 
+                                                   miniGAP_parent_directory=miniGAP_parent_directory, traj_directory=output_directory )
         else:
             struct_list = import_structures( structure_settings.structure_file, structure_settings.n_structs, structure_settings.verbose, in_notebook, miniGAP_parent_directory)
     return struct_list 
@@ -226,6 +229,8 @@ def GatherStructureInfo(struct_list, gather_forces = True, use_self_energies=Tru
     
     en_list = np.array([[RetrieveEnergyFromASE(struct, method=energy_encoding, keyword = energy_keyword)/len(struct) \
                          - self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct] for struct in struct_list], dtype=dtype)
+    
+    n_atom_list = np.array([len(struct) for struct in struct_list])
 
     if gather_forces:
         frc_list = np.array([atom.get_forces() for atom in struct_list], dtype=np.float64)

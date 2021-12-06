@@ -15,10 +15,10 @@
 
 # Debugging TensorFlow
 
-# In[3]:
+# In[1]:
 
 
-##### This cell gives us a couple options for debugging Tensorflow.
+# This cell gives us a couple options for debugging Tensorflow.
 # It is the first code cell, because it must be run, before the TensorFlow library is imported and it is most convenient to import all modules in the next cell
 # To enable this debugging, you must change one of the debugging flags to True and run this cell *before* importing running later cells
 # Currently this is only done manually from the notebook, but could be included as a JSON setting in the future if desirable
@@ -50,7 +50,7 @@ if tf_gpu_debugging:
         print("No GPU found")
 
 
-# In[3]:
+# In[2]:
 
 
 # This cell performs a couple initialization tasks that have to start before even importing all the libraries or settings
@@ -301,13 +301,13 @@ if s.make_output_files and not in_notebook:
     calculation_results_directory = make_miniGAP_results_subdirectory(s, date=today_string, miniGAP_parent_directory=miniGAP_parent_directory)
     
     # Start saving output to a log file as well as printing it to the terminal
-    log_filename = calculation_results_directory + "/miniGAP.log"
+    log_filename = calculation_results_directory + "miniGAP.log"
     logger = Logger(log_filename)
     if s.verbose:
         print("Logging all output starting now into {}".format(log_filename))
     
     # Save settings used for this calculation for future reference
-    output_JSON_filename = calculation_results_directory + "/miniGAP.settings"    
+    output_JSON_filename = calculation_results_directory + "miniGAP.settings"    
     with open(output_JSON_filename, 'w', encoding='utf-8') as settings_output_file:
         json.dump(settings_dict, settings_output_file, ensure_ascii=False, indent=4)
     if s.verbose:
@@ -362,14 +362,20 @@ if s.verbose:
 # Note 3: You can see here that I use the function 'TickTock'. The real function is 'CompileStructureList'.
 #         'TickTock' is is just for timing purposes. See the next cell for more details.
 
-StructureList, TimeCompileStructures = TickTock(CompileStructureList, s, in_notebook, miniGAP_parent_directory)
+StructureList, TimeCompileStructures = TickTock(CompileStructureList, s, in_notebook, miniGAP_parent_directory, calculation_results_directory)
 if s.print_timings:
     print("Compiling structures into list took {:.2f} seconds".format(TimeCompileStructures))
 
-
-ns_atoms = np.unique([len(struct) for struct in StructureList])
-assert len(ns_atoms) == 1
+ns_atoms = np.array([len(struct) for struct in StructureList])
+ns_atoms_unique = np.unique(ns_atoms)
+# assert len(ns_atoms) == 1
 n_atoms = ns_atoms[0]
+
+
+# In[ ]:
+
+
+
 
 
 # In[10]:
@@ -1168,7 +1174,7 @@ if plot_hyperparam_training:
         #fig.suptitle("{}".format(s.n_structs))
         
         if s.make_output_files and not in_notebook:
-            hyperparameter_results_filename = "/hyperparameter_training"
+            hyperparameter_results_filename = "hyperparameter_training"
             plt.savefig(calculation_results_directory + hyperparameter_results_filename)    
 
 
@@ -1214,15 +1220,9 @@ if s.make_output_files and not in_notebook:
 #             settings_string += "_" +str(key) + "_" + str(value)
 
     # check if existing, add number to end if it is
-    energy_results_title = "/energy_predictions"#"energy_results" + today_string + settings_string
+    energy_results_title = "energy_predictions"#"energy_results" + today_string + settings_string
     plt.savefig(calculation_results_directory + energy_results_title)    
     # plt.savefig(miniGAP_parent_directory + "results/" + energy_results_title)
-
-
-# In[1]:
-
-
-print(calculation_results_directory)
 
 
 # In[26]:

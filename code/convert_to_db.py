@@ -6,6 +6,21 @@ import os
 import ase.db
 import ase.io
 
+def assign_energy(structs, energy_keyword):
+    if isinstance(structs, Atoms):
+        structs = [structs]
+    elif not isinstance(structs[0], Atoms):
+        raise TypeError("'structs' argument should be an Atoms object or iterable of Atoms objects")
+    
+    for i in range(len(structs)):
+        struct = structs[i]
+        if energy_keyword in struct.info:
+            energy=struct.info[energy_keyword]
+        else:
+            raise KeyError("Could not find the '{}' field in the Atoms.info dictionary for structure #{}. Double check your input file.".format(energy_keyword, i))
+        struct.calc = SinglePointCalculator(struct, energy=energy)
+    return structs
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-efb', '--existing_file_behavior', type=str, default="skip", choices = ["skip", "overwrite", "append"], help='Specifies what to do when a requested database file already exists. This flag needs to come before all filenames.')
 parser.add_argument('filenames', nargs=argparse.REMAINDER, help="List of filenames to convert")

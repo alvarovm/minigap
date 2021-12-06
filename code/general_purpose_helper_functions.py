@@ -101,6 +101,8 @@ def generate_unique_id():
     return base64.b64encode(os.urandom(64)).decode().replace("/", "").replace("+", "")[:5]
 
 def make_unique_directory(ideal_directory_name, identifier_type="counter", verbose=False):
+    # Remove possible trailing "/" because it would interfere with this code
+    ideal_directory_name = ideal_directory_name if ideal_directory_name[-1] != "/" else ideal_directory_name[:-1]
     unique_directory_name, extension = os.path.splitext(ideal_directory_name)
     if len(extension):
         print("Error in requested directory name, '{}'. Extenstion '{}' detected. Try again without extension.".format(unique_directory_name, extension) )
@@ -126,7 +128,38 @@ def make_unique_directory(ideal_directory_name, identifier_type="counter", verbo
         os.mkdir(unique_directory_name)
         if verbose:
             print("Could not create '{}', because it already existed. Created '{}' instead.".format(ideal_directory_name, unique_directory_name) )
-    return unique_directory_name
+    # For consistency, it is best to return a path ending with a "/"
+    unique_directory_name = unique_directory_name if unique_directory_name[-1] == "/" else unique_directory_name + "/"
+    return unique_directory_name 
+
+
+def find_unique_filename(ideal_filename, identifier_type="counter", verbose=False):
+    ideal_filename_base, extension = os.path.splitext(ideal_filename)
+    if not len(extension) > 1:
+        print("Error in requested filename, '{}'. No extenstion detected. Try again with extension.".format(ideal_filename) )
+        return 1
+    if not os.path.isfile(ideal_filename):
+        if verbose:
+            print("Filename '{}' selected.".format( ideal_filename ) )
+        return ideal_filename
+    else:
+        unique_filename = ideal_filename
+        if identifier_type=="counter":
+            counter = 2
+            while os.path.isfile(unique_filename):
+                unique_filename = ideal_filename_base + "_" +  str(counter) + extension
+                counter += 1
+        elif identifier_type == "random_string":
+            while os.path.isfile(unique_filename):
+                unique_filename = ideal_filename_base + "_" + generate_unique_id() + extension
+        else:
+            print("Do not recognize identifier_type '{}'. \
+            \nUse 'counter' for an integer index suffix or use 'random_string' for a random 5 character string suffix.".format(identifier_type))
+            return 2
+
+        if verbose:
+            print("Filename '{}' selected because requested filename '{}' is already assigned".format(unique_filename, ideal_filename) )
+        return unique_filename
 
 # These plotting settings make graphs easier to read
 # This is a very clunky way to do this and I want to do it more elegantly (suggestions welcome)

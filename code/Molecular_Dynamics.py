@@ -3,9 +3,6 @@
 
 from ase import Atoms
 import numpy.random as rand
-from ase.calculators.emt import EMT
-from ase.calculators.lj import LennardJones
-from ase.calculators.morse import MorsePotential
 from ase.optimize import BFGS
 from ase.optimize import MDMin
 from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
@@ -18,20 +15,12 @@ import os
 import numpy as np
 import base64
 
-def generate_unique_id():
-    return base64.b64encode(os.urandom(64)).decode().replace("/", "").replace("+", "")[:5]
-
-def assign_calc(molecule, calc_type):    
-    if calc_type == "EMT":
-        molecule.calc = EMT()
-    elif calc_type == "LJ":
-        molecule.calc = LennardJones()
-    elif calc_type == "Morse":
-        molecule.calc = MorsePotential()
-    else:
-        print("This function does not recognize '{}' as a currently supported Atoms calculator type".format(calc_type))
-        return
-    return molecule
+# --------
+import sys
+sys.path.append('../code')
+from ASE_helper_functions import *
+from general_purpose_helper_functions import *
+# --------
 
 def make_diatomic(element = 'N', verbose=False, bond_length=1.1, calc_type="EMT"):
     atom = Atoms(element)
@@ -60,15 +49,31 @@ def make_diatomic(element = 'N', verbose=False, bond_length=1.1, calc_type="EMT"
 
 
 def make_optimized_diatomic(element = "N", optimizer_type="MDMin", fmax=0.0001, verbose=False, bond_length=1.1, 
-                            optimize_step=.02, calc_type="EMT", return_traj_file = False):
+                            optimize_step=.02, calc_type="EMT",
+                            traj_directory = "DEFAULT_DIRECTORY", traj_filename = "DEFAULT_FILENAME", parent_directory="../", return_type="final"):
+    if return_type not in ("final", "history", "filename"):
+        return_type_error="Do not understand return_type value '{}'. \
+        \nUse 'final' for the final optimized molecule; use 'history' for a list of all molecules in optimization; \
+        \nor use 'filename' for the location where this trajectory was saved.".format(return_type)
+        raise ValueError(return_type_error)
+    
     molecule = make_diatomic(element=element, bond_length=bond_length, verbose=verbose, calc_type=calc_type)
         
-    if return_traj_file:
-        fid = generate_unique_id()
-        traj_filename = "../data/" + element + "_" + optimizer_type + "_" + fid + ".traj"
+    if traj_directory not in [None, False]:
+        if traj_directory == "DEFAULT_DIRECTORY":
+            traj_directory = parent_directory + "/data/"
+        traj_filename = traj_filename.replace("DEFAULT_FILENAME", element + "2_" + optimizer_type + "_" + calc_type + ".traj")
+        traj_filename = traj_directory + traj_filename
+        traj_filename = find_unique_filename(traj_filename, identifier_type="random_string", verbose=verbose)        
     else:
         traj_filename=None
-    
+        if return_type == "filename":
+            return_type_confusion_error = "Cannot use return_type = 'filename' if printing to file is turned off.\
+            \nTo print to a file in the default '/data/' directory, leave your traj_directory argument blank. \
+            \nAlternatively, provide a directory to traj_directory or change return_type."
+            raise ValueError(return_type_confusion_error)
+            
+        
     if optimizer_type == "MDMin":
         optimizer = MDMin(molecule, trajectory=traj_filename, logfile=None, dt= optimize_step)
     elif optimizer_type == "BFGS":
@@ -79,10 +84,12 @@ def make_optimized_diatomic(element = "N", optimizer_type="MDMin", fmax=0.0001, 
     
     optimizer.run(fmax=fmax)
     
-    if return_traj_file:
+    if return_type == "filename":
         return traj_filename
-    else:
+    elif return_type == "final":
         return molecule
+    elif return_type == "history":
+        return read(traj_filename, index=':')
 
 
     
@@ -100,7 +107,7 @@ def print_md_progress(molecule, i, is_diatomic=False):
 
 def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=10, md_type="VelocityVerlet", time_step=1, bond_length=1.1,
                      temperature=300, verbose = False, print_step_size = 10, calc_type="EMT", preoptimize=True, return_traj_file = False,
-                     md_seed=1, jitter=0, plot_energies="default", parent_directory="../"):
+                     md_seed=1, jitter=0, plot_energies="default", traj_directory = None, parent_directory="../"):
     
     rand.seed(md_seed)
     if structure is None and from_diatomic == False:
@@ -108,7 +115,8 @@ def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=
         return
     elif from_diatomic == True:
         if preoptimize:
-            molecule = make_optimized_diatomic(element=element, verbose=verbose, bond_length=bond_length, calc_type=calc_type)
+            molecule = make_optimized_diatomic(element=element, verbose=verbose, bond_length=bond_length, calc_type=calc_type,
+                                               traj_directory= traj_directory, traj_filename = "for_MD_DEFAULT_FILENAME")
         else:
             molecule = make_diatomic(element = element, verbose=verbose, bond_length=bond_length, calc_type=calc_type)
         chemical_formula = "{}2".format(element)
@@ -118,6 +126,7 @@ def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=
         molecule = structure
         chemical_formula = molecule.get_chemical_formula()
         molecule = assign_calc(molecule, calc_type)
+        # Replace this with the built-in ASE method ideally
         if jitter:
             jittered_positions = molecule.positions + np.random.normal(0, jitter, molecule.positions.shape )
             molecule.set_positions(jittered_positions)
@@ -128,10 +137,14 @@ def generate_md_traj(structure=None, from_diatomic=False, element = "N", nsteps=
         print("Did not understand instructions for generating trajectory.")
         return
     
-    fid = generate_unique_id()
+    # This could be generalized in the future to work in a directory outside of minigap,
+    # but for now it needs to have a sister directory called 'data' or have its directly explicitly provided
+    if traj_directory in [True, "", None, False]:
+        traj_directory = parent_directory + "/data/"
+    traj_filename = traj_directory + chemical_formula + "_" + md_type + ".traj"
+    traj_filename = find_unique_filename(traj_filename, identifier_type="random_string", verbose=verbose)        
 
-    traj_filename = parent_directory + "/data/" + chemical_formula + "_" + md_type + "_" + fid + ".traj"
-    
+        
     MaxwellBoltzmannDistribution(molecule, temperature_K=temperature)# * (2.5 * units.kB))
     
     if md_type == "VelocityVerlet":

@@ -6,11 +6,31 @@ import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
 from matplotlib import animation
 from IPython.display import HTML
-from import_default_element_values import import_default_element_values
-element_color_map, element_radius_map = import_default_element_values()
-# Overriding VESTA defaults for C and H
-element_color_map['C'] = 'g'
-element_color_map['H'] = 'k'
+
+# ========================
+import sys
+sys.path.append('../code')
+from general_purpose_helper_functions import find_unique_filename
+# ========================
+
+def import_default_element_values():
+    element_color_map = {}
+    element_radius_map = {}
+    with open("../data/element_default_values.txt", "r") as element_default_value_database:
+        lines =element_default_value_database.readlines()
+        for line in lines:
+            # remove comments and break apart by spaces
+            line = line.split("#")[0].split()
+            if line:
+                atomic_number = int(line[0])
+                atomic_symbol = line[1]
+                atomic_radius = float(line[2])
+                van_der_Waals_radius = float(line[3])
+                ionic_radius = float(line[4])
+                default_color = (float(line[5]), float(line[6]), float(line[7]))
+                element_radius_map[atomic_symbol] = atomic_radius
+                element_color_map[atomic_symbol] = default_color
+    return element_color_map, element_radius_map
 
 class Structure3DPlot:
     def __init__(self, structure, **kwargs):
@@ -35,7 +55,8 @@ class Structure3DPlot:
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
-        self.element_colors = kwargs.get('element_colors', element_color_map)#{"C":"g", "O":"r", "H":"k", "N":"b"})
+        self.element_colors = element_color_map.copy()
+        self.element_colors.update( kwargs.get('element_colors', element_color_map) )
         self.element_sizes = kwargs.get('element_sizes', element_radius_map)
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
 
@@ -157,7 +178,8 @@ class Structure3DAnimation:
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
-        self.element_colors = kwargs.get('element_colors', element_color_map)#{"C":"g", "O":"r", "H":"k", "N":"b"})
+        self.element_colors = element_color_map.copy()
+        self.element_colors.update( kwargs.get('element_colors', element_color_map) )
         self.element_sizes = kwargs.get('element_sizes', element_radius_map)
         self.atom_size_scale_factor = kwargs.get('atom_size_scale_factor', 120/self.sidelength)
         
@@ -182,6 +204,10 @@ class Structure3DAnimation:
             self.positions = self.structure.positions - np.mean(self.structure.positions, axis=0)
         elif self.adjust_COM == "initial":
             self.positions = self.structure.positions - np.mean(self.structure_list[0].positions, axis=0)
+        elif self.adjust_COM == "average":
+            if not hasattr(self, 'average_position'):
+                self.average_position = np.mean(np.array([struct.get_positions() for struct in self.structure_list]).reshape([-1, 3]), axis=0)
+            self.positions = self.structure.positions - self.average_position
         elif self.adjust_COM in {"off", False}:
             self.positions = self.structure.positions
         
@@ -293,3 +319,16 @@ class Structure3DAnimation:
         self.title_j = self.title + "\nStructure #{}".format(j)
         self.ax.set_title(self.title_j)
         return self.lines_atoms
+    
+    def Save(self, filename):
+        self.filename = find_unique_filename(filename, verbose=self.verbose)
+        self.frame_counter = 0
+        self.animation.save(self.filename)
+    
+    
+
+element_color_map, element_radius_map = import_default_element_values()
+# Overriding VESTA defaults for C and H
+element_color_map['C'] = 'g'
+element_color_map['N'] = 'b'
+element_color_map['H'] = 'k'

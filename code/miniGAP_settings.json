@@ -4,15 +4,15 @@
         "print_timings": true
     },
     "calculation_type_settings": {
-        "title" : "Test",
+        "title" : "Diatomic_Test",
         "make_output_files":true,
         "append_date_to_title" : true, 
-        "use_forces": false,
+        "use_forces": true,
         "dtype": "float64"
     },
     "structure_dataset_settings": {
         "structure_file_import_settings": {
-            "structure_file": "distorted_propenol.db",
+            "structure_file": null,
             "energy_encoding": "normal",
             "energy_keyword": "U0",
             "is_periodic": false
