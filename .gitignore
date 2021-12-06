@@ -1,4 +1,3 @@
-**/*.traj
 **/.ipynb_checkpoints
 data/QM9
 data/iso17
