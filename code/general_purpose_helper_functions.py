@@ -5,6 +5,8 @@ import os
 import matplotlib.pyplot as plt
 import collections
 import base64
+import pandas as pd #I use this for printing a table. Place in try except eventually
+
 
 # Adapted from stackoverflow.com/a/41477104
 
@@ -175,3 +177,76 @@ plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIG_SIZE)     # fontsize of the figure title
+
+
+def plot_energy_errors(global_ens, predicted_global_ens, model_description = "model", 
+                use_local=False, local_ens=[], predicted_local_ens=[],
+                color="mediumseagreen", predicted_stdev=None, n_atoms=10, in_notebook=True):
+   
+    global_ens, predicted_global_ens = np.array(global_ens), np.array(predicted_global_ens)
+    local_ens, predicted_local_ens = np.array(local_ens).flatten(), np.array(predicted_local_ens).flatten()
+    global_r2 = np.corrcoef(global_ens, predicted_global_ens)[0,1]
+    local_r2 = np.corrcoef(local_ens, predicted_local_ens)[0,1]
+    
+    if use_local:
+        fig, axs = plt.subplots(figsize=(20,4.5), ncols=3)
+    else:
+        fig, axs = plt.subplots(figsize=(12, 5), ncols=2)
+    
+    
+    axs[0].set_title("Predicted Global Energy vs True Global Energy\nfor {}".format(model_description))
+    axs[0].set_xlabel("True Global Energy ")
+    axs[0].set_ylabel("Predicted Global Energy ")
+    axs[0].plot(global_ens, global_ens, "-", c="k", lw=0.5)
+    if type(predicted_stdev) != type(None):
+        axs[0].errorbar(global_ens, predicted_global_ens, yerr=predicted_stdev, fmt="o", c=color, ms=5, label= "mean -/+ std")
+        axs[0].legend()
+    else:
+        axs[0].plot(global_ens, predicted_global_ens ,"o", c=color, ms=5)
+    axs[0].text(0.25, 0.75, "r2 = {:.3f}".format(global_r2), horizontalalignment='center', verticalalignment='center', transform=axs[0].transAxes)
+    
+
+    
+    global_errors = abs(global_ens-predicted_global_ens)/n_atoms
+    errors = abs(predicted_local_ens-local_ens) if use_local else global_errors
+    
+    # For generating tickmarks on axes
+    max_err_exp = max(-1, int(np.ceil(np.log10(max(global_errors)))), int(np.ceil(np.log10(max(errors)))) )
+    min_err_exp = min(-5, int(np.ceil(np.log10(min(global_errors)))), int(np.ceil(np.log10(min(errors)))) )
+
+    rmse = np.sqrt(np.mean(errors ** 2))
+    mae = np.mean(errors)
+    max_abs_error = np.max(errors)
+    error_dataframe = pd.DataFrame(data={"Local Energy":[rmse, mae, max_abs_error, local_r2]}, index = ["Root Mean Squared Error", "Mean Absolute Error", "Max Absolute Error", "r²"])
+    #print("For LOCAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(rmse, mae, max_abs_error))
+
+    global_rmse = np.sqrt(np.mean(global_errors ** 2))
+    global_mae = np.mean(global_errors)
+    global_max_abs_error = np.max(global_errors)
+    error_dataframe["Global Energy"] = [global_rmse, global_mae, global_max_abs_error, global_r2]
+    #print("For GLOBAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(global_rmse, global_mae, global_max_abs_error))
+    if in_notebook:
+        display(error_dataframe)
+    else:
+        print(error_dataframe)
+    
+    logbins = np.logspace(min_err_exp, max_err_exp, 4*(max_err_exp - min_err_exp))
+    logticklabels = np.logspace(min_err_exp, max_err_exp, max_err_exp - min_err_exp + 1)
+    axs[1].hist(global_errors, bins=logbins, color=color)
+    axs[1].set_xscale('log')
+    axs[1].set_xticks(logticklabels)
+    axs[1].set_xticklabels(logticklabels)
+    axs[1].set_xlabel("Error in Predicted Global Energy/Atom")
+    axs[1].set_ylabel("Frequency")
+    axs[1].set_title("Error Histogram of Global Energy Predictions\nfor {}".format(model_description))
+    
+    if use_local:
+        logbins = np.logspace(min_err_exp, max_err_exp, 4*(max_err_exp - min_err_exp))
+        logticklabels = np.logspace(min_err_exp, max_err_exp, max_err_exp - min_err_exp + 1)
+        axs[2].hist(errors, bins=logbins, color=color)
+        axs[2].set_xscale('log')
+        axs[2].set_xticks(logticklabels)
+        axs[2].set_xticklabels(logticklabels)
+        axs[2].set_xlabel("Error in Predicted Local Energy/Atom")
+        axs[2].set_ylabel("Frequency")
+        axs[2].set_title("Error Histogram of Local Energy Predictions\nfor {}".format(model_description))

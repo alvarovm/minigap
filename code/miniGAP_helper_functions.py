@@ -15,7 +15,6 @@ from ase.io import read
 from ase.collections import g2
 from ase.build import molecule
 import os.path as path
-import pandas as pd #I use this for printing a table. Place in try except eventually
 import time
 
 # --------
@@ -24,6 +23,8 @@ sys.path.append('../code')
 from Generate_Descriptors import get_dscribe_descriptors
 from Molecular_Dynamics import generate_md_traj
 from general_purpose_helper_functions import make_unique_directory
+from ASE_helper_functions import assign_precalculated_energy
+from Visualize_Structures import Structure3DAnimation
 # --------
 no_forces_string = "Not Using Forces"
 
@@ -214,20 +215,19 @@ def self_energy(element, use_librascal_values=False, dtype=np.float64):
         return np.array(0, dtype=dtype)    
     
     
-def RetrieveEnergyFromASE(struct, method="normal", keyword=""):
-    if method == "normal":
+def RetrieveEnergyFromASE(struct, alt_keyword=""):
+    if struct.calc != None:
         return struct.get_potential_energy()
-    elif method == "info":
-        return struct.info[keyword]
     else:
-        print("Cannot interpret method {}".format(method))
+        return struct.info[alt_keyword]
+
     
 
-def GatherStructureInfo(struct_list, gather_forces = True, use_self_energies=True, energy_encoding="normal", energy_keyword="", dtype=np.float64):
+def GatherStructureInfo(struct_list, gather_forces = True, use_self_energies=True, alt_energy_keyword="", dtype=np.float64):
 
     pos_list =  np.array([atoms.positions for atoms in struct_list])
     
-    en_list = np.array([[RetrieveEnergyFromASE(struct, method=energy_encoding, keyword = energy_keyword)/len(struct) \
+    en_list = np.array([[RetrieveEnergyFromASE(struct, alt_keyword = alt_energy_keyword)/len(struct) \
                          - self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct] for struct in struct_list], dtype=dtype)
     
     n_atom_list = np.array([len(struct) for struct in struct_list])
@@ -478,74 +478,13 @@ def pick_kernel(kernel_type, **kwargs):
         print("Warning: Do not recognize kernel_type={}".format(kernel_type))
 
 
-def plot_errors(global_ens, predicted_global_ens, model_description = "model", 
-                use_local=False, local_ens=[], predicted_local_ens=[],
-                color="mediumseagreen", predicted_stdev=None, n_atoms=10, in_notebook=True):
-   
-    global_ens, predicted_global_ens = np.array(global_ens), np.array(predicted_global_ens)
-    local_ens, predicted_local_ens = np.array(local_ens).flatten(), np.array(predicted_local_ens).flatten()
-    global_r2 = np.corrcoef(global_ens, predicted_global_ens)[0,1]
-    local_r2 = np.corrcoef(local_ens, predicted_local_ens)[0,1]
-    
-    if use_local:
-        fig, axs = plt.subplots(figsize=(20,4.5), ncols=3)
-    else:
-        fig, axs = plt.subplots(figsize=(12, 5), ncols=2)
-    
-    
-    axs[0].set_title("Predicted Global Energy vs True Global Energy\nfor {}".format(model_description))
-    axs[0].set_xlabel("True Global Energy ")
-    axs[0].set_ylabel("Predicted Global Energy ")
-    axs[0].plot(global_ens, global_ens, "-", c="k")
-    if type(predicted_stdev) != type(None):
-        axs[0].errorbar(global_ens, predicted_global_ens, yerr=predicted_stdev, fmt="o", c=color, ms=3, label= "mean -/+ std")
-        axs[0].legend()
-    else:
-        axs[0].plot(global_ens, predicted_global_ens ,"o", c=color, ms=3)
-    axs[0].text(0.25, 0.75, "r2 = {:.3f}".format(global_r2), horizontalalignment='center', verticalalignment='center', transform=axs[0].transAxes)
-    
-
-    
-    global_errors = abs(global_ens-predicted_global_ens)/n_atoms
-    errors = abs(predicted_local_ens-local_ens) if use_local else global_errors
-    
-    # For generating tickmarks on axes
-    max_err_exp = max(-1, int(np.ceil(np.log10(max(global_errors)))), int(np.ceil(np.log10(max(errors)))) )
-    min_err_exp = min(-5, int(np.ceil(np.log10(min(global_errors)))), int(np.ceil(np.log10(min(errors)))) )
-
-    rmse = np.sqrt(np.mean(errors ** 2))
-    mae = np.mean(errors)
-    max_abs_error = np.max(errors)
-    error_dataframe = pd.DataFrame(data={"Local Energy":[rmse, mae, max_abs_error, local_r2]}, index = ["Root Mean Squared Error", "Mean Absolute Error", "Max Absolute Error", "r²"])
-    #print("For LOCAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(rmse, mae, max_abs_error))
-
-    global_rmse = np.sqrt(np.mean(global_errors ** 2))
-    global_mae = np.mean(global_errors)
-    global_max_abs_error = np.max(global_errors)
-    error_dataframe["Global Energy"] = [global_rmse, global_mae, global_max_abs_error, global_r2]
-    #print("For GLOBAL energies the rms error = {:.3e}, the mean absolute error = {:.3e} and the max absolute error = {:.3e}".format(global_rmse, global_mae, global_max_abs_error))
-    if in_notebook:
-        display(error_dataframe)
-    else:
-        print(error_dataframe)
-    
-    logbins = np.logspace(min_err_exp, max_err_exp, 4*(max_err_exp - min_err_exp))
-    logticklabels = np.logspace(min_err_exp, max_err_exp, max_err_exp - min_err_exp + 1)
-    axs[1].hist(global_errors, bins=logbins, color=color)
-    axs[1].set_xscale('log')
-    axs[1].set_xticks(logticklabels)
-    axs[1].set_xticklabels(logticklabels)
-    axs[1].set_xlabel("Error in Predicted Global Energy/Atom")
-    axs[1].set_ylabel("Frequency")
-    axs[1].set_title("Error Histogram of Global Energy Predictions\nfor {}".format(model_description))
-    
-    if use_local:
-        logbins = np.logspace(min_err_exp, max_err_exp, 4*(max_err_exp - min_err_exp))
-        logticklabels = np.logspace(min_err_exp, max_err_exp, max_err_exp - min_err_exp + 1)
-        axs[2].hist(errors, bins=logbins, color=color)
-        axs[2].set_xscale('log')
-        axs[2].set_xticks(logticklabels)
-        axs[2].set_xticklabels(logticklabels)
-        axs[2].set_xlabel("Error in Predicted Local Energy/Atom")
-        axs[2].set_ylabel("Frequency")
-        axs[2].set_title("Error Histogram of Local Energy Predictions\nfor {}".format(model_description))
+        
+def create_miniGAP_visualization(struct_list, visualization_settings, output_directory, animation_filename="DEFAULT_FILENAME"):
+    save_file = visualization_settings.save_dataset_animation & visualization_settings.make_output_files
+    verbose = visualization_settings.verbose
+    animation_object = Structure3DAnimation(struct_list)
+    animation_html5 = animation_object.Plot()
+    if save_file:
+        animation_filename = output_directory + animation_filename.replace("DEFAULT_FILENAME", "structure_animation.mp4")
+        animation_object.Save(animation_filename)
+    return animation_html5

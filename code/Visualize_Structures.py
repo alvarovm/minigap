@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import os.path as path
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits import mplot3d
@@ -13,10 +14,10 @@ sys.path.append('../code')
 from general_purpose_helper_functions import find_unique_filename
 # ========================
 
-def import_default_element_values():
+def import_default_element_values(default_value_directory):
     element_color_map = {}
     element_radius_map = {}
-    with open("../data/element_default_values.txt", "r") as element_default_value_database:
+    with open(default_value_directory + "element_default_values.txt", "r") as element_default_value_database:
         lines =element_default_value_database.readlines()
         for line in lines:
             # remove comments and break apart by spaces
@@ -326,8 +327,9 @@ class Structure3DAnimation:
         self.animation.save(self.filename)
     
     
-
-element_color_map, element_radius_map = import_default_element_values()
+miniGAP_parent_directory = path.dirname(path.dirname(path.realpath(__file__))) + "/"
+data_directory = miniGAP_parent_directory + "data/"
+element_color_map, element_radius_map = import_default_element_values(data_directory)
 # Overriding VESTA defaults for C and H
 element_color_map['C'] = 'g'
 element_color_map['N'] = 'b'

@@ -20,7 +20,7 @@ def assign_calc(molecule, calc_type):
         return
     return molecule
 
-def assign_energy(structs, energy_keyword):
+def assign_precalculated_energy(structs, energy_keyword):
     if isinstance(structs, Atoms):
         structs = [structs]
     elif not isinstance(structs[0], Atoms):

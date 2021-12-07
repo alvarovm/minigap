@@ -50,7 +50,7 @@ if tf_gpu_debugging:
         print("No GPU found")
 
 
-# In[2]:
+# In[1]:
 
 
 # This cell performs a couple initialization tasks that have to start before even importing all the libraries or settings
@@ -58,7 +58,7 @@ if tf_gpu_debugging:
 #    in_notebook() is a function that returns True if this code is run from an ipython kernel or False otherwise
 #    I need to do this first, because the following task is performed conditional on this being run as a script
 # 2) Times the initial setup of miniGAP if we are running the miniGAP script.
-#    Initial setup refers to everything starting with this task up to and including compiling the structure dataset
+#    Initial setup refers to everything starting with this task up to and including gathering structural info (like energies)
 # 3) Import functions and libraries used by miniGAP 
 # 4) Determines a path to the miniGAP home directory which can be used for reading or writing files.
 # 5) Determines the date for use in naming output files
@@ -131,8 +131,7 @@ nonetypes = [None, "None", "null", ""]
 
 # Some input parameter notes (not comprehensive):
 # 
-# energy_encoding= "info" for QM9 or "normal" for distorted propenols  
-# energy_keyword="U0" for QM9 or ignored for distorted propenols
+# alt_energy_keyword="U0" for QM9 or ignored for distorted propenols
 # 
 # my_priority = #"efficiency" for experimenting with something new or otherwise "consistency"
 # 
@@ -285,15 +284,14 @@ if demonstrate_named_tuple:
 # In[7]:
 
 
-# This cell allows for saving results if run from a script
+# This cell allows for saving results
 # If the user so chooses:
 #     1) A new subdirectory will be created for the results output files
 #            The new subdirectory is /minigap/results/CALCULATIONTITLE where CALCULATIONTITLE is determined by user input and existing directories
-#     2) All output (stdout) printed to terminal is also saved to a file in CALCULATIONTITLE
+#     2) All output (stdout) printed to terminal is also saved to a file in CALCULATIONTITLE if run from a script
 #     3) The settings are saved to a file in CALCULATIONTITLE similar to the JSON input file
 
-
-if s.make_output_files and not in_notebook:
+if s.make_output_files:
     # Make new subdirectory
     # The name can be given by s.title or it will just be 'results'
     # If s.append_date_to_title is set to True, the date will be added to the end
@@ -301,10 +299,12 @@ if s.make_output_files and not in_notebook:
     calculation_results_directory = make_miniGAP_results_subdirectory(s, date=today_string, miniGAP_parent_directory=miniGAP_parent_directory)
     
     # Start saving output to a log file as well as printing it to the terminal
-    log_filename = calculation_results_directory + "miniGAP.log"
-    logger = Logger(log_filename)
-    if s.verbose:
-        print("Logging all output starting now into {}".format(log_filename))
+    # Not currently implemented for notebook, because cells might not be run in order which would create a confusing log
+    if not in_notebook:
+        log_filename = calculation_results_directory + "miniGAP.log"
+        logger = Logger(log_filename)
+        if s.verbose:
+            print("Logging all output starting now into {}".format(log_filename))
     
     # Save settings used for this calculation for future reference
     output_JSON_filename = calculation_results_directory + "miniGAP.settings"    
@@ -312,6 +312,10 @@ if s.make_output_files and not in_notebook:
         json.dump(settings_dict, settings_output_file, ensure_ascii=False, indent=4)
     if s.verbose:
         print("Input settings for this calculation stored in {}".format(output_JSON_filename))
+else:
+    # This variable is not used, but needs to exist for positional arguments
+    # Ideally we would handle this differently
+    calculation_results_directory = ""
 
 
 # ## Initialization Tasks (continued)
@@ -372,12 +376,6 @@ ns_atoms_unique = np.unique(ns_atoms)
 n_atoms = ns_atoms[0]
 
 
-# In[ ]:
-
-
-
-
-
 # In[10]:
 
 
@@ -433,43 +431,50 @@ if convert_to_db_here_and_now and in_notebook:
 # In[12]:
 
 
-# This cell completes the timing started in the first cell if this code is executed from a script
+# Set this flag to True if you want to visualize your structure within this jupyter notebook (no pop-up window)
+# For more details on the plotting function, refer to the Visualize_Structures notebook
 
-if s.print_timings and not in_notebook:
-    TimeAfterStartUp = time.time()
-    TimeStartUp = TimeAfterStartUp - TimeBeforeStartUp
-    print("Completed the initial setup of miniGAP (including importing structures) in {:.2f} seconds".format(TimeStartUp))
+visualize_structure_in_notebook = False
+
+# Having to use (s.save_dataset_animation & s.make_output_files) is tedious
+# Perhaps I can make s.make_output_files overwrite s.save_dataset_animation upon import
+if visualize_structure_in_notebook or (s.save_dataset_animation & s.make_output_files):
+    StructureDatasetAnimation, TimeVisualize = TickTock(create_miniGAP_visualization, StructureList, s, calculation_results_directory)
+    if visualize_structure_in_notebook and in_notebook:
+        display(StructureDatasetAnimation)
+    del StructureDatasetAnimation
+    
+    if s.verbose and (s.save_dataset_animation & s.make_output_files):
+        print("Created animation of the structural dataset used in this calculation in the results directory. This might be useful to verify the correct structures are being used.")
+    
+    if s.print_timings:
+        print("Created animation of structures in {} seconds ".format(TimeVisualize))
 
 
 # In[13]:
 
 
-# Set this flag to True if you want to visualize your structure within this jupyter notebook (no pop-up window)
-# For more details on the plotting function, refer to the Visualize_Structures notebook
+# This cell 
 
-check_structures_visually = False
-if check_structures_visually:
-    from Visualize_Structures import Structure3DAnimation
-    # You can display the animation in one line if you are not within an if statement.
-    # But you need to explicitly call display() if you are within an if statement:
-    # 'Structure3DAnimation(StructureList).Plot()'
-    html_animation = Structure3DAnimation(StructureList).Plot()
-    display(html_animation)
+[EnergyList, ForceList, PosList], TimeGather = TickTock(GatherStructureInfo, StructureList, gather_forces = s.use_forces, use_self_energies=s.use_self_energies, 
+                                                     alt_energy_keyword = s.alt_energy_keyword)
+if s.print_timings:
+    gather_forces_message= ", force" if s.use_forces else ""
+    print("Gathered energy{} and structure info in {:.2f} seconds".format(gather_forces_message, TimeGather))
 
 
 # In[14]:
 
 
-# This cell 
+# This cell completes the timing started in the first cell if this code is executed from a script
 
-[EnergyList, ForceList, PosList], TimeGather = TickTock(GatherStructureInfo, StructureList, gather_forces = s.use_forces, use_self_energies=s.use_self_energies, 
-                                                     energy_encoding = s.energy_encoding,  energy_keyword = s.energy_keyword)
-gather_forces_message= ", force" if s.use_forces else ""
-if s.print_timings:
-    print("Gathered energy{} and structure info in {:.2f} seconds".format(gather_forces_message, TimeGather))
+if s.print_timings and not in_notebook:
+    TimeAfterStartUp = time.time()
+    TimeStartUp = TimeAfterStartUp - TimeBeforeStartUp
+    print("Completed the initial setup of miniGAP (including compiling structural data) in {:.2f} seconds".format(TimeStartUp))
 
 
-# In[16]:
+# In[15]:
 
 
 [SoapDerivativeList, SoapList], TimeSoap = TickTock(GenerateDescriptorsAndDerivatives, StructureList, s.nmax, s.lmax, s.rcut, s.smear, s.attach_SOAP_center, s.is_periodic, s.use_forces)
@@ -480,7 +485,7 @@ elif s.verbose:
     print("Generated SOAP descriptors{}.".format(calculate_derivatives_message))
 
 
-# In[17]:
+# In[16]:
 
 
 out_data, TimePrepare = TickTock(PrepareDataForTraining, 
@@ -504,7 +509,7 @@ else:
     train_sps_full, test_sps_full, train_ens, test_ens, train_indices, test_indices, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var = out_data 
 
 
-# In[18]:
+# In[17]:
 
 
 n_samples_full, n_features_full = train_sps_full.shape
@@ -531,7 +536,7 @@ else:
 # 2. Custom loss function vs optimizer.minimize
 # 3. Set certain variable untrainable
 
-# In[19]:
+# In[18]:
 
 
 # Initialize kernels and model hyperparameters
@@ -761,7 +766,7 @@ else:
 TimeBeforeWeights = time.time()
 
 
-# In[20]:
+# In[19]:
 
 
 # I am currently (11/30) converting the hyperparameter learning in this cell into a function
@@ -996,7 +1001,7 @@ TimeBeforeWeights = time.time()
 # train_hyperparams(train_sps, train_ens, sparse_train_sps, kernel=kernel, settings=s)
 
 
-# In[21]:
+# In[20]:
 
 
 
@@ -1068,7 +1073,7 @@ if s.use_forces:
 TimeAfterPrediction = time.time()
 
 
-# In[22]:
+# In[21]:
 
 
 TrainingCellNonEpochsTraining = TimeBeforeEpoch0 - TimeBeforePreEpoch + TimeAfterTraining - TimeBeforeWeights 
@@ -1085,7 +1090,7 @@ if s.print_timings:
     print("{:50s}: {:.3f}".format("Prediction time", PredictionTime) )
 
 
-# In[23]:
+# In[22]:
 
 
 if True:
@@ -1100,7 +1105,7 @@ if True:
     print("Stored the hyperparameters and mse values for plotting under n={}".format(s.n_structs) )
 
 
-# In[24]:
+# In[23]:
 
 
 plot_hyperparam_training = (in_notebook or s.n_epochs > 0)
@@ -1173,27 +1178,18 @@ if plot_hyperparam_training:
 
         #fig.suptitle("{}".format(s.n_structs))
         
-        if s.make_output_files and not in_notebook:
+        if s.make_output_files:
             hyperparameter_results_filename = "hyperparameter_training"
             plt.savefig(calculation_results_directory + hyperparameter_results_filename)    
 
 
-# In[15]:
-
-
-# print("from_notebook: ",in_notebook)
-
-# run_all_cells = False
-# assert run_all_cells
-
-
-# In[25]:
+# In[24]:
 
 
 # make a regroup function
 test_ens_regrouped = test_ens_rescaled.reshape(-1, len(StructureList[0]))
 predict_ens_regrouped = predict_ens_rescaled.reshape(-1, len(StructureList[0]))
-self_energies_regrouped = [[self_energy(atom.symbol, use_librascal_values=True) for atom in StructureList[i]] for i in test_indices]
+self_energies_regrouped = [[self_energy(atom.symbol, use_librascal_values=s.use_self_energies) for atom in StructureList[i]] for i in test_indices]
 test_global_ens = np.sum(test_ens_regrouped + self_energies_regrouped, axis=1)
 predict_global_ens = np.sum(predict_ens_regrouped + self_energies_regrouped, axis=1)
 
@@ -1205,27 +1201,22 @@ if s.prediction_calculation == "predict_f":
     print("Our observation noise variance implies our reference error is +/- {:.3} /atom".format( input_std) )
 else:
     predict_global_ens_std = None
-plot_errors(model_description = "gpflow model",
+plot_energy_errors(model_description = "gpflow model",
             use_local=True,
             global_ens=test_global_ens,   predicted_global_ens= predict_global_ens,
             local_ens= test_ens_rescaled, predicted_local_ens = predict_ens_rescaled,
             color="mediumseagreen", predicted_stdev = None, n_atoms=n_atoms, in_notebook=in_notebook )
 
 
-if s.make_output_files and not in_notebook:
-#     settings_string = ""
-#     important_settings = ["nmax", "lmax", "rcut", "n_structs", "n_sparse", "n_epochs"]
-#     for key, value in settings_dict.items():
-#         if key in important_settings:
-#             settings_string += "_" +str(key) + "_" + str(value)
-
+if s.make_output_files:
+    energy_errors_title = "energy_predictions"#"energy_results" + today_string + settings_string
+    energy_errors_plot_filename = calculation_results_directory + energy_errors_title + ".png"
     # check if existing, add number to end if it is
-    energy_results_title = "energy_predictions"#"energy_results" + today_string + settings_string
-    plt.savefig(calculation_results_directory + energy_results_title)    
-    # plt.savefig(miniGAP_parent_directory + "results/" + energy_results_title)
+    energy_errors_plot_filename = find_unique_filename(energy_errors_plot_filename)
+    plt.savefig(energy_errors_plot_filename)    
 
 
-# In[26]:
+# In[25]:
 
 
 if s.use_forces:
@@ -1251,9 +1242,15 @@ if s.use_forces:
             pass    
 
     #plt.savefig("../media/librascal_database_local_energy_force_learning")
+    if s.make_output_files:
+        force_errors_title = "force_predictions"#"energy_results" + today_string + settings_string
+        force_errors_plot_filename = calculation_results_directory + force_errors_title + ".png"
+        # check if existing, add number to end if it is
+        force_errors_plot_filename = find_unique_filename(force_errors_plot_filename)
+        plt.savefig(force_errors_plot_filename)    
 
 
-# In[27]:
+# In[26]:
 
 
 # This closes the log file. Probably not necessary since it is at the end of the script, but it's best practice.

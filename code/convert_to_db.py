@@ -6,7 +6,7 @@ import os
 import ase.db
 import ase.io
 
-def assign_energy(structs, energy_keyword):
+def assign_precalculated_energy(structs, energy_keyword):
     if isinstance(structs, Atoms):
         structs = [structs]
     elif not isinstance(structs[0], Atoms):
