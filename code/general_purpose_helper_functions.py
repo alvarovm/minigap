@@ -25,12 +25,13 @@ class Logger(object):
         # 'sys.stderr = self' gives sys.stderr the Logger methods
         sys.stderr = self
 
-    def write(self, message):
-        # This writes to the sys.stdout object that existed before this Logger was initiated.
-        # That prints output on the terminal.
-        # Unfortunately that means both stderr and stdout are compressed to a new stdout.
-        # However, this seems less important than the ability to save both stdout and stderr to a log file.
-        self.terminal.write(message)
+    def write(self, message, logfile_only=False):
+        if not logfile_only:
+            # This writes to the sys.stdout object that existed before this Logger was initiated.
+            # That prints output on the terminal.
+            # Unfortunately that means both stderr and stdout are compressed to a new stdout.
+            # However, this seems less important than the ability to save both stdout and stderr to a log file.
+            self.terminal.write(message)
         # This writes to the log file
         self.logfile.write(message)
 

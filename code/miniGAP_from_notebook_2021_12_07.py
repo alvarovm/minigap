@@ -1,35 +1,27 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # miniGAP
+# ***  
+# <h1><center>
+#     miniGAP
+# </center></h1>    
+# 
+# ***  
+# 
 
 # You can perform all the functions of miniGAP within this notebook or you can create a python script from the last cell of this notebook and run the script in the terminal.
 
-# 
+# ## Initialization Tasks 
 
-# 
+# Debugging TensorFlow
 
-# In[2]:
-
-
-# This cell allows us to time the initial setup of miniGAP if we are running the miniGAP script
-# in_notebook() is a function that returns True if this code is run from an ipython kernel or False otherwise
-
-import sys
-sys.path.append('../code')
-from miniGAP_helper_functions import check_if_in_notebook
-
-in_notebook = check_if_in_notebook()
-if not in_notebook:
-    import time
-    TimeBeforeStartUp = time.time()
-
-
-# In[3]:
+# In[1]:
 
 
 # This cell gives us a couple options for debugging Tensorflow.
-# To enable this debugging, you must change one of the debugging flags to True and run this cell *before* importing Tensorflow
+# It is the first code cell, because it must be run, before the TensorFlow library is imported and it is most convenient to import all modules in the next cell
+# To enable this debugging, you must change one of the debugging flags to True and run this cell *before* importing running later cells
+# Currently this is only done manually from the notebook, but could be included as a JSON setting in the future if desirable
 
 tf_cpu_debugging =False
 if tf_cpu_debugging:
@@ -58,20 +50,50 @@ if tf_gpu_debugging:
         print("No GPU found")
 
 
-# In[4]:
+# In[26]:
 
 
-# import functions from my files
+# This cell performs a couple initialization tasks that have to start before even importing all the libraries or settings
+# 1) Defines a version of miniGAP (hardcoded)
+# 2) Determines whether this is being run as a notebook or a script with in_notebook(). Some tasks are only performed in the notebook and vice versa.
+#    in_notebook() is a function that returns True if this code is run from an ipython kernel or False otherwise
+#    I need to do this first, because the following task is performed conditional on this being run as a script
+# 3) Times the initial setup of miniGAP if we are running the miniGAP script.
+#    Initial setup refers to everything starting with this task up to and including gathering structural info (like energies)
+# 4) Import functions and libraries used by miniGAP 
+# 5) Determines a path to the miniGAP home directory which can be used for reading or writing files.
+# 6) Determines the date for use in naming output files
+# 7) Imports a banner to printed at the beginning of script output
+# 8) Sets a printing format
+# 9) Compiles some functions as tf.functions
+# 10) Sets a list of values to be interpreted as Nonetype
+
+version = "0.0.0"
+
 import sys
 sys.path.append('../code')
+from general_purpose_helper_functions import *
+# True if run from ipython kernel or False otherwise
+in_notebook = check_if_in_notebook()
+
+# Time initial setup
+import time
+if not in_notebook:
+    TimeBeforeStartUp = time.time()
+
+# import functions
+## import functions from my files
 from Molecular_Dynamics import generate_md_traj, make_diatomic
 from miniGAP_helper_functions import *
+from general_purpose_helper_functions import *
 
-# import functions from modules
+## import functions from libraries
 import os.path as path
-import resource
-import time
 import argparse
+import json
+from collections import namedtuple
+import datetime as dt 
+import resource
 import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
@@ -79,48 +101,92 @@ import gpflow
 from itertools import islice
 import matplotlib.pyplot as plt
 from gpflow.utilities import print_summary
-import json
-from collections import namedtuple
-
-
-# In[5]:
-
-
+    
 # Sets the miniGAP home directory. This assumes the notebook or script is located one directory below the home directory.
 if in_notebook:
     miniGAP_parent_directory = "../"
 else:
     miniGAP_parent_directory = path.dirname(path.dirname(path.realpath(__file__))) + "/"
+    
+# Save date for use in naming output files
+today = dt.datetime.today()
+today_string = "_{:d}_{:02d}_{:02d}".format(today.year, today.month, today.day)
+today_string_alt = "{:d}/{:02d}/{:02d}".format(today.year, today.month, today.day)
+
+# Save date for use in naming output files
+version_placeholder = "_VERSION_PLACEHOLDER_"
+date_placeholder = "_DATE_PLACEHOLDER_"
+version_formatted = "{:{str_len}s}".format(version, str_len=len(version_placeholder) )
+date_formatted = "{:{str_len}s}".format(today_string_alt, str_len=len(date_placeholder) )
+miniGAP_banner_filename = miniGAP_parent_directory + "code/miniGAP_banner.txt"
+with open(miniGAP_banner_filename, "r") as banner_file:
+    banner = banner_file.read()
+banner = banner.replace(version_placeholder, version_formatted).replace(date_placeholder, date_formatted)
+
+# Sets the printing format of gpflow model hyperparameters
+if in_notebook:
+    gpflow.config.set_default_summary_fmt("notebook")
+else:
+    gpflow.config.set_default_summary_fmt("grid")
+    
+# Compiles some functions as TensorFlow tf functions not all of which are currently used
+# Compiled tf functions are several times faster than normal functions
+mse_tf = tf.function(mse, autograph=False, jit_compile=False)
+mse_2factor_tf = tf.function(mse_2factor, autograph=False, jit_compile=False)
+train_hyperparams_without_forces_tf = tf.function(train_hyperparams_without_forces, autograph=False, jit_compile=False)
+predict_energies_from_weights_tf = tf.function(predict_energies_from_weights, autograph=False, jit_compile=False)
+
+# This could be used to define what input values will be interpretted as None.
+# This may be useful if there are common user-input mistakes when setting a value to None from the commandline or JSON input.
+# However, I do not use this yet.
+nonetypes = [None, "None", "null", ""]
 
 
-# # Input parameters
+# ## Input parameters
 
-# Input parameter notes:
+# Some input parameter notes (not comprehensive):
 # 
-# energy_encoding= "info" for QM9 or "normal" for distorted propenols
-# energy_keyword="U0" for QM9 or ignored for distorted propenols
+# alt_energy_keyword="U0" for QM9 or ignored for distorted propenols
 # 
 # my_priority = #"efficiency" for experimenting with something new or otherwise "consistency"
 # 
-# controls initial train_test_split breaking apart training and test data
+# controls initial train_test_split breaking apart training and test data  
 # split_seed = 2
 # 
-# controls in-training train_test_split breaking apart training_j and validation_j data
+# controls in-training train_test_split breaking apart training_j and validation_j data  
 # valid_split_seed = 2
 # 
-# controls multiple tf stochastic processes including:
-# 1) Adams optimizer AND 
-# 2) batching through tf.data.Dataset.from_tensor_slices in training
+# controls multiple tf stochastic processes including:  
+# 1) Adams optimizer AND   
+# 2) batching through tf.data.Dataset.from_tensor_slices in training  
 # tf_seed = 2
 # 
-# controls batching through tf.data.Dataset.from_tensor_slices in training
+# controls batching through tf.data.Dataset.from_tensor_slices in training  
 # shuffle_seed = 2
 # 
-# kernel_type = #"polynomial" for actual GAP or "exponentiated_quadratic" possibly for debugging
+# kernel_type = #"polynomial" for actual GAP or "exponentiated_quadratic" possibly for debugging  
 # 
 # prediction_calculation = #"direct" OR "predict_f" OR "cholesky" OR "alpha"
 
-# In[6]:
+# In[3]:
+
+
+# This cell imports settings from the JSON file and saves them to JSON_settings_dict 
+# Some settings of JSON_settings_dict may be overwritten by commandline args, but the JSON_settings_dict variable is not edited.
+# It is unused now, but might be useful for debugging.
+# Note 1: You can change the input parameters in the JSON file and rerun the notebook starting from here
+# Note 2: To debug or reformat the JSON file, I recommend jsonformatter.org
+# Note 3: The settings file from which these data are imported has a nested structure. This is exclusively for ease of navigation for the user.
+#         The parent settings names such as "debugging_settings" are completely ignored by the code
+#         Therefore, you can also use a settings file saved from a previous run, which may not have a nested structure.
+
+settings_json_filename = miniGAP_parent_directory + "code/miniGAP_settings.json"
+with open(settings_json_filename, encoding = 'utf-8') as settings_file_object:
+    JSON_settings_dict_nested = json.load(settings_file_object)
+JSON_settings_dict = flatten_dict(JSON_settings_dict_nested)
+
+
+# In[4]:
 
 
 # This cell allows the miniGAP script to accept commandline parameters
@@ -167,16 +233,16 @@ if not in_notebook:
     cmdline_args_dict = vars(cmdline_args)
 
 
-# In[16]:
+# In[5]:
 
 
-# You can change the input parameters in the JSON file and rerun the notebook starting from here
+# This cell creates a namedtuple variable, 's', which stores all settings. For details on how to use a namedtuple, see next cell.
+# If this is run as a script then, prior to creating s, we check if there are commandline arguments.
+# Any commandline argument overwrites the default argument from the JSON settings file in the dictionary 'settings_dict'
+# The settings from the JSON file are used whenever no commandline argument exists.
 
-settings_json_filename = miniGAP_parent_directory + "code/miniGAP_settings.json"
-with open(settings_json_filename, encoding = 'utf-8') as settings_file_object:
-    default_settings_dict = json.load(settings_file_object)
-
-settings_dict = default_settings_dict
+settings_dict = JSON_settings_dict.copy()
+# Synchronize the JSON and commandline settings
 if not in_notebook:
     for setting_name in settings_dict.keys():
         if setting_name in cmdline_args_dict.keys():
@@ -186,26 +252,109 @@ if not in_notebook:
     for setting_name in cmdline_args_dict.keys():
         if setting_name not in settings_dict.keys():
             print("The commandline argument {} is currently nonfunctional because it does not exist in the JSON file.".format(setting_name))
+
+# Created the namedtuple variable storing all the settings
+# I name the namedtuple settings object with one letter 's' instead of using 'Settings' to minimize disruption of the code
+# However, you may need for the variable name and the string assigned to 'typename' to be the same if you are pickling.
+# 'typename' is the first parameter of namedtuple() and was 'Settings' when I wrote this comment
 SettingsNamespace = namedtuple("Settings", settings_dict.keys())
 s = SettingsNamespace(*settings_dict.values())
 
 
-# In[17]:
+# In[6]:
 
 
-# This cell handles some basic initialization tasks
+# Set the flag to True to see a demonstration of how to use a namedtuple variable
 
-# Sets the printing format of gpflow model hyperparameters
-if in_notebook:
-    gpflow.config.set_default_summary_fmt("notebook")
-else:
-    gpflow.config.set_default_summary_fmt("grid")
+demonstrate_named_tuple=False
+
+if demonstrate_named_tuple:
+    # You can iterate through the elements of a named_tuple
+    # s._fields contains the setting names or fields
+    n_settings_to_print = 10
+    print("The first {} fields and values within s:".format(n_settings_to_print) )
+    for setting_field, setting_value in zip(s._fields[:n_settings_to_print], s[:n_settings_to_print]):
+        print("\t{} = {}".format(setting_field, setting_value))
+    print("\t...\n")
     
-# Compiles some functions as TensorFlow tf functions
-mse_tf = tf.function(mse, autograph=False, jit_compile=False)
-mse_2factor_tf = tf.function(mse_2factor, autograph=False, jit_compile=False)
-train_hyperparams_without_forces_tf = tf.function(train_hyperparams_without_forces, autograph=False, jit_compile=False)
-predict_energies_from_weights_tf = tf.function(predict_energies_from_weights, autograph=False, jit_compile=False)
+    # You can acccess variables of a named tuple in 2 ways
+    print("2 ways of accessing values stored in s:")
+    # 1) As an attribute
+    print("\t1) s.structure_file = {}".format(s.structure_file) )
+    
+    # 2) Indexing
+    index_for_demonstration = [i for i in range(len(s._fields)) if s._fields[i] == "structure_file"][0]
+    print("\t2) s[{}] = {}".format(index_for_demonstration, s[index_for_demonstration]))
+
+    # I exclusively use this method in miniGAP code because this allows me to just prepend 's.' to any variable I had been using 
+    #     from my previous code, which defined all variables within a notebook and had no JSON or commandline arg input.
+    # Another convenience of using a namedtuple is that I can just replace 's.' with 'self.' in the futurewhen when I convert 
+    #     the majority of miniGAP code into a GAP class.
+
+# For more details see docs.python.org/3/library/collections.html#collections.namedtuple
+
+
+# In[ ]:
+
+
+# Print banner in script unless supressed
+# Had to wait until we had the suppress setting to do this
+if not (in_notebook or s.suppress_banner):
+    print(banner, end="")
+
+
+# ## Output files
+
+# In[7]:
+
+
+# This cell allows for saving results
+# If the user so chooses:
+#     1) A new subdirectory will be created for the results output files
+#            The new subdirectory is /minigap/results/CALCULATIONTITLE where CALCULATIONTITLE is determined by user input and existing directories
+#     2) All output (stdout) printed to terminal is also saved to a file in CALCULATIONTITLE if run from a script
+#     3) The settings are saved to a file in CALCULATIONTITLE similar to the JSON input file
+
+if s.make_output_files:
+    # Make new subdirectory
+    # The name can be given by s.title or it will just be 'results'
+    # If s.append_date_to_title is set to True, the date will be added to the end
+    # If a directory already exists with the attempted name, the lowest possible integer to make a unique name is added to the end
+    calculation_results_directory = make_miniGAP_results_subdirectory(s, date=today_string, miniGAP_parent_directory=miniGAP_parent_directory)
+    
+    # Start saving output to a log file as well as printing it to the terminal
+    # Not currently implemented for notebook, because cells might not be run in order which would create a confusing log
+    if not in_notebook:
+        log_filename = calculation_results_directory + "miniGAP.log"
+        if s.verbose:
+            print("Logging all output starting after this message into {}".format(log_filename))  
+        logger = Logger(log_filename)
+        
+        # Place banner as first entry into logfile
+        # We had to print to terminal first so we use logfile_only=True to avoid dublication 
+        logger.write(banner, logfile_only=True)
+    
+    # Save settings used for this calculation for future reference
+    output_JSON_filename = calculation_results_directory + "miniGAP.settings"    
+    with open(output_JSON_filename, 'w', encoding='utf-8') as settings_output_file:
+        json.dump(settings_dict, settings_output_file, ensure_ascii=False, indent=4)
+    if s.verbose:
+        print("Input settings for this calculation stored in {}".format(output_JSON_filename))
+else:
+    # This variable is not used, but needs to exist for positional arguments
+    # Ideally we would handle this differently
+    calculation_results_directory = ""
+
+
+# ## Initialization Tasks (continued)
+
+# In[8]:
+
+
+# This cell handles initialization tasks which could not be completed previously.
+# These tasks potentially print out some output depending on the s.verbose setting so they could not be performed
+#     1) prior to importing the settings, or
+#     2) prior to initiating the logging (or else the outputs would not be logged.) 
 
 # miniGAP uses a lot memory so it is good to allow it access to as much as possible
 try:
@@ -218,9 +367,10 @@ except:
 # Check on GPU availability
 if s.verbose:
     print("{} GPU(s) recognized by tensorflow:".format(len(tf.config.list_physical_devices('GPU'))), tf.config.list_physical_devices('GPU'))
+    
 
 
-# In[18]:
+# In[9]:
 
 
 # This cell compiles the structure dataset to be used by miniGAP
@@ -244,17 +394,17 @@ if s.verbose:
 # Note 3: You can see here that I use the function 'TickTock'. The real function is 'CompileStructureList'.
 #         'TickTock' is is just for timing purposes. See the next cell for more details.
 
-StructureList, TimeCompileStructures = TickTock(CompileStructureList, s, in_notebook, miniGAP_parent_directory)
+StructureList, TimeCompileStructures = TickTock(CompileStructureList, s, in_notebook, miniGAP_parent_directory, calculation_results_directory)
 if s.print_timings:
     print("Compiling structures into list took {:.2f} seconds".format(TimeCompileStructures))
 
-
-ns_atoms = np.unique([len(struct) for struct in StructureList])
-assert len(ns_atoms) == 1
+ns_atoms = np.array([len(struct) for struct in StructureList])
+ns_atoms_unique = np.unique(ns_atoms)
+# assert len(ns_atoms) == 1
 n_atoms = ns_atoms[0]
 
 
-# In[19]:
+# In[10]:
 
 
 # You will see the TickTock function used throughout this notebook
@@ -289,7 +439,7 @@ if see_example_of_TickTock_usage:
         
 
 
-# In[20]:
+# In[11]:
 
 
 # Set convert flag to True and run this cell to convert your file to a database right now from this notebook
@@ -306,7 +456,42 @@ if convert_to_db_here_and_now and in_notebook:
     # !python ../code/convert_to_db.py -efb overwrite $s.structure_file
 
 
-# In[21]:
+# In[12]:
+
+
+# Set this flag to True if you want to visualize your structure within this jupyter notebook (no pop-up window)
+# For more details on the plotting function, refer to the Visualize_Structures notebook
+
+visualize_structure_in_notebook = False
+
+# Having to use (s.save_dataset_animation & s.make_output_files) is tedious
+# Perhaps I can make s.make_output_files overwrite s.save_dataset_animation upon import
+if visualize_structure_in_notebook or (s.save_dataset_animation & s.make_output_files):
+    StructureDatasetAnimation, TimeVisualize = TickTock(create_miniGAP_visualization, StructureList, s, calculation_results_directory)
+    if visualize_structure_in_notebook and in_notebook:
+        display(StructureDatasetAnimation)
+    del StructureDatasetAnimation
+    
+    if s.verbose and (s.save_dataset_animation & s.make_output_files):
+        print("Created animation of the structural dataset used in this calculation in the results directory. This might be useful to verify the correct structures are being used.")
+    
+    if s.print_timings:
+        print("Created animation of structures in {:.2f} seconds ".format(TimeVisualize))
+
+
+# In[13]:
+
+
+# This cell 
+
+[EnergyList, ForceList, PosList], TimeGather = TickTock(GatherStructureInfo, StructureList, gather_forces = s.use_forces, use_self_energies=s.use_self_energies, 
+                                                     alt_energy_keyword = s.alt_energy_keyword)
+if s.print_timings:
+    gather_forces_message= ", force" if s.use_forces else ""
+    print("Gathered energy{} and structure info in {:.2f} seconds".format(gather_forces_message, TimeGather))
+
+
+# In[14]:
 
 
 # This cell completes the timing started in the first cell if this code is executed from a script
@@ -314,38 +499,10 @@ if convert_to_db_here_and_now and in_notebook:
 if s.print_timings and not in_notebook:
     TimeAfterStartUp = time.time()
     TimeStartUp = TimeAfterStartUp - TimeBeforeStartUp
-    print("Completed tje initial setup of miniGAP (including importing structures) in {:.2f} seconds".format(TimeStartUp))
+    print("Completed the initial setup of miniGAP (including compiling structural data) in {:.2f} seconds".format(TimeStartUp))
 
 
-# In[22]:
-
-
-# Set this flag to True if you want to visualize your structure within this jupyter notebook (no pop-up window)
-# For more details on the plotting function, refer to the Visualize_Structures notebook
-
-check_structures_visually = False
-if check_structures_visually:
-    from Visualize_Structures import Structure3DAnimation
-    # You can display the animation in one line if you are not within an if statement.
-    # But you need to explicitly call display() if you are within an if statement:
-    # 'Structure3DAnimation(StructureList).Plot()'
-    html_animation = Structure3DAnimation(StructureList).Plot()
-    display(html_animation)
-
-
-# In[23]:
-
-
-# This cell 
-
-[EnergyList, ForceList, PosList], TimeGather = TickTock(GatherStructureInfo, StructureList, gather_forces = s.use_forces, use_self_energies=s.use_self_energies, 
-                                                     energy_encoding = s.energy_encoding,  energy_keyword = s.energy_keyword)
-gather_forces_message= ", force" if s.use_forces else ""
-if s.print_timings:
-    print("Gathered energy{} and structure info in {:.2f} seconds".format(gather_forces_message, TimeGather))
-
-
-# In[24]:
+# In[15]:
 
 
 [SoapDerivativeList, SoapList], TimeSoap = TickTock(GenerateDescriptorsAndDerivatives, StructureList, s.nmax, s.lmax, s.rcut, s.smear, s.attach_SOAP_center, s.is_periodic, s.use_forces)
@@ -356,7 +513,7 @@ elif s.verbose:
     print("Generated SOAP descriptors{}.".format(calculate_derivatives_message))
 
 
-# In[25]:
+# In[16]:
 
 
 out_data, TimePrepare = TickTock(PrepareDataForTraining, 
@@ -380,7 +537,7 @@ else:
     train_sps_full, test_sps_full, train_ens, test_ens, train_indices, test_indices, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var = out_data 
 
 
-# In[27]:
+# In[17]:
 
 
 n_samples_full, n_features_full = train_sps_full.shape
@@ -407,7 +564,7 @@ else:
 # 2. Custom loss function vs optimizer.minimize
 # 3. Set certain variable untrainable
 
-# In[29]:
+# In[18]:
 
 
 # Initialize kernels and model hyperparameters
@@ -637,7 +794,7 @@ else:
 TimeBeforeWeights = time.time()
 
 
-# In[ ]:
+# In[19]:
 
 
 # I am currently (11/30) converting the hyperparameter learning in this cell into a function
@@ -872,7 +1029,7 @@ TimeBeforeWeights = time.time()
 # train_hyperparams(train_sps, train_ens, sparse_train_sps, kernel=kernel, settings=s)
 
 
-# In[30]:
+# In[20]:
 
 
 
@@ -944,7 +1101,7 @@ if s.use_forces:
 TimeAfterPrediction = time.time()
 
 
-# In[31]:
+# In[21]:
 
 
 TrainingCellNonEpochsTraining = TimeBeforeEpoch0 - TimeBeforePreEpoch + TimeAfterTraining - TimeBeforeWeights 
@@ -961,10 +1118,10 @@ if s.print_timings:
     print("{:50s}: {:.3f}".format("Prediction time", PredictionTime) )
 
 
-# In[32]:
+# In[22]:
 
 
-if in_notebook:
+if True:
     if 'mse_history_by_n' not in locals():
         mse_history_by_n = {}
     if 'hyperparam_history_by_n' not in locals():
@@ -976,10 +1133,10 @@ if in_notebook:
     print("Stored the hyperparameters and mse values for plotting under n={}".format(s.n_structs) )
 
 
-# In[33]:
+# In[23]:
 
 
-plot_hyperparam_training = in_notebook
+plot_hyperparam_training = (in_notebook or s.n_epochs > 0)
 
 if plot_hyperparam_training:
 
@@ -998,7 +1155,7 @@ if plot_hyperparam_training:
             continue
         color = palette(palette_itr)
         palette_itr = (palette_itr + 30) % palette_size
-
+        print("The title axes are not assigned correctly. Currently fixing.")
 
 
         # hyperparameters on axes 00, 01, 10
@@ -1048,15 +1205,19 @@ if plot_hyperparam_training:
         ax11.ticklabel_format(useOffset=False)
 
         #fig.suptitle("{}".format(s.n_structs))
+        
+        if s.make_output_files:
+            hyperparameter_results_filename = "hyperparameter_training"
+            plt.savefig(calculation_results_directory + hyperparameter_results_filename)    
 
 
-# In[34]:
+# In[24]:
 
 
 # make a regroup function
 test_ens_regrouped = test_ens_rescaled.reshape(-1, len(StructureList[0]))
 predict_ens_regrouped = predict_ens_rescaled.reshape(-1, len(StructureList[0]))
-self_energies_regrouped = [[self_energy(atom.symbol, use_librascal_values=True) for atom in StructureList[i]] for i in test_indices]
+self_energies_regrouped = [[self_energy(atom.symbol, use_librascal_values=s.use_self_energies) for atom in StructureList[i]] for i in test_indices]
 test_global_ens = np.sum(test_ens_regrouped + self_energies_regrouped, axis=1)
 predict_global_ens = np.sum(predict_ens_regrouped + self_energies_regrouped, axis=1)
 
@@ -1068,44 +1229,22 @@ if s.prediction_calculation == "predict_f":
     print("Our observation noise variance implies our reference error is +/- {:.3} /atom".format( input_std) )
 else:
     predict_global_ens_std = None
-plot_errors(model_description = "gpflow model",
+plot_energy_errors(model_description = "gpflow model",
             use_local=True,
             global_ens=test_global_ens,   predicted_global_ens= predict_global_ens,
             local_ens= test_ens_rescaled, predicted_local_ens = predict_ens_rescaled,
-            color="mediumseagreen", predicted_stdev = None, n_atoms=n_atoms )
-
-settings_string = ""
-important_settings = ["nmax", "lmax", "rcut", "n_structs", "n_sparse", "n_epochs"]
-for key, value in settings_dict.items():
-    if key in important_settings:
-        settings_string += "_" +str(key) + "_" + str(value)
-import datetime as dt 
-today = dt.datetime.today()
-date_string = "_{:02d}_{:02d}_{:d}".format(today.month, today.day, today.year)
-# check if existing, add number to end if it is
-energy_results_title = "energy_results" + date_string + settings_string
-plt.savefig(miniGAP_parent_directory + "results/" + energy_results_title)
+            color="mediumseagreen", predicted_stdev = None, n_atoms=n_atoms, in_notebook=in_notebook )
 
 
-# In[ ]:
+if s.make_output_files:
+    energy_errors_title = "energy_predictions"#"energy_results" + today_string + settings_string
+    energy_errors_plot_filename = calculation_results_directory + energy_errors_title + ".png"
+    # check if existing, add number to end if it is
+    energy_errors_plot_filename = find_unique_filename(energy_errors_plot_filename)
+    plt.savefig(energy_errors_plot_filename)    
 
 
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[35]:
+# In[25]:
 
 
 if s.use_forces:
@@ -1117,7 +1256,6 @@ if s.use_forces:
     force_min = min(np.min(test_frcs_rescaled), np.min(predict_frcs_rescaled)) - np.std(test_frcs_rescaled)/2
 
     for i in range(3):
-
         axs[i].plot([force_min, force_max], [force_min, force_max], "-", c="k")
         axs[i].plot(test_frcs_rescaled[:,i], test_frcs_rescaled[:,i], "o", c="k", ms=4)
         axs[i].plot(test_frcs_rescaled[:,i], predict_frcs_rescaled[:,i], "o", label="custom", c="mediumseagreen", ms=5, alpha=.5)
@@ -1132,11 +1270,19 @@ if s.use_forces:
             pass    
 
     #plt.savefig("../media/librascal_database_local_energy_force_learning")
+    if s.make_output_files:
+        force_errors_title = "force_predictions"#"energy_results" + today_string + settings_string
+        force_errors_plot_filename = calculation_results_directory + force_errors_title + ".png"
+        # check if existing, add number to end if it is
+        force_errors_plot_filename = find_unique_filename(force_errors_plot_filename)
+        plt.savefig(force_errors_plot_filename)    
 
 
-# In[ ]:
+# In[26]:
 
 
-
+# This closes the log file. Probably not necessary since it is at the end of the script, but it's best practice.
+if s.make_output_files and not in_notebook:
+    logger.stop()
 
 

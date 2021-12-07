@@ -3,11 +3,14 @@
         "verbose": true,
         "print_timings": true
     },
-    "calculation_type_settings": {
-        "title" : "distorted_propenol_MD",
+    "output_settings":{
+        "title" : "Debugging_Sean",
         "make_output_files":true,
         "save_dataset_animation" : true,
-        "append_date_to_title": true, 
+        "append_date_to_title": true,
+        "suppress_banner": false
+    },
+    "calculation_type_settings": {
         "use_forces": true,
         "dtype": "float64"
     },
@@ -33,7 +36,7 @@
             "md_time_step": 0.1,
             "md_seed": 1
         },
-        "n_structs": 600,
+        "n_structs": 200,
         "split_seed": 2
     },
     "soap_descriptor_settings": {
