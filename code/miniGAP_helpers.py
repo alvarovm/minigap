@@ -22,8 +22,8 @@ import sys
 sys.path.append('../code')
 from Generate_Descriptors import get_dscribe_descriptors
 from Molecular_Dynamics import generate_md_traj
-from general_purpose_helper_functions import make_unique_directory
-from ASE_helper_functions import assign_precalculated_energy
+from general_helpers import make_unique_directory
+from ASE_helpers import assign_precalculated_energy
 from Visualize_Structures import Structure3DAnimation
 # --------
 no_forces_string = "Not Using Forces"

@@ -18,8 +18,8 @@ import base64
 # --------
 import sys
 sys.path.append('../code')
-from ASE_helper_functions import *
-from general_purpose_helper_functions import *
+from ASE_helpers import *
+from general_helpers import *
 # --------
 
 def make_diatomic(element = 'N', verbose=False, bond_length=1.1, calc_type="EMT"):

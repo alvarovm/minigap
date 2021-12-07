@@ -11,7 +11,7 @@ from IPython.display import HTML
 # ========================
 import sys
 sys.path.append('../code')
-from general_purpose_helper_functions import find_unique_filename
+from general_helpers import find_unique_filename
 # ========================
 
 def import_default_element_values(default_value_directory):

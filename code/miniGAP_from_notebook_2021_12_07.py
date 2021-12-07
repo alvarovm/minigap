@@ -72,7 +72,7 @@ version = "0.0.0"
 
 import sys
 sys.path.append('../code')
-from general_purpose_helper_functions import *
+from general_helpers import *
 # True if run from ipython kernel or False otherwise
 in_notebook = check_if_in_notebook()
 
@@ -84,8 +84,8 @@ if not in_notebook:
 # import functions
 ## import functions from my files
 from Molecular_Dynamics import generate_md_traj, make_diatomic
-from miniGAP_helper_functions import *
-from general_purpose_helper_functions import *
+from miniGAP_helpers import *
+from general_helpers import *
 
 ## import functions from libraries
 import os.path as path
