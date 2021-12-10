@@ -126,83 +126,6 @@ def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directo
     return struct_list 
 
 
-def PrepareDataForTraining(sp_list,
-                           dsp_dx_list,
-                           en_list,
-                           frc_list ,
-                           pos_list ,
-                           split_seed,
-                           prepare_forces ,
-                           train_fract ,
-                           scale_soaps
-                          ):
-    # This comment itself needs to be split up now haha
-    
-    # Split all data into training and test sets.
-    # Test sets will not be viewed until training is done
-    # Intra-structural information is not reshaped into local atomic information until after splitting
-    # This means structures will be fully in the training or test sets, not split between both
-    # It also means it will be possible to predict global energies in the test set
-    
-    train_indices, test_indices  = train_test_split(np.arange(len(sp_list)), random_state = split_seed, test_size = 1 - train_fract )
-    
-    train_ens, test_ens = en_list[train_indices], en_list[test_indices] #, test_ens, train_frcs, test_frcs
-    train_ens, test_ens = train_ens.reshape(-1, 1), test_ens.reshape(-1, 1)
-    
-    # Scale energies to have zero mean and unit variance.
-    # Divide forces by the same scale factor but don't subtract the mean
-
-    ens_scaler = StandardScaler().fit(train_ens)
-    train_ens, test_ens = ens_scaler.transform(train_ens), ens_scaler.transform(test_ens)
-    # The following line is for the tensorflow code. If it is commented out, it is for the gpflow code
-    #train_ens, test_ens = train_ens.flatten(), test_ens.flatten()
-    ens_var = train_ens.var()
-    
-    if prepare_forces:
-        train_frcs, test_frcs = frc_list[train_indices], frc_list[test_indices]
-        train_frcs, test_frcs = train_frcs.reshape(-1, 3), test_frcs.reshape(-1, 3)
-        train_frcs, test_frcs = train_frcs / ens_scaler.scale_, test_frcs / ens_scaler.scale_
-        frcs_var = train_frcs.var()
-            
-    
-#     split_data = train_test_split(sp_list, dsp_dx_list, en_list, frc_list, pos_list, np.arange(len(sp_list)), random_state = split_seed, test_size = 1 - train_fract )
-#     print([np.array(x).shape for x in split_data])
-#     split_data = [np.array]
-#     train_sps_full, test_sps_full, train_dsp_dx, test_dsp_dx, train_ens, test_ens, train_frcs, test_frcs, train_pos, test_pos, train_indices, test_indices = split_data
-    
-    train_sps_full, test_sps_full = sp_list[train_indices], sp_list[test_indices]
-    train_sps_full, test_sps_full = train_sps_full.reshape(-1, sp_list.shape[-1]), test_sps_full.reshape(-1, sp_list.shape[-1])  
-    
-    # Scale soaps to have zero mean and unit variance.
-    # Divide derivatives by the same scale factor but don't subtract the mean
-    
-    soap_scaler = StandardScaler().fit(train_sps_full)
-    if scale_soaps:
-        train_sps_full, test_sps_full = soap_scaler.transform(train_sps_full), soap_scaler.transform(test_sps_full)
-    
-    if prepare_forces:
-        train_dsp_dx, test_dsp_dx = dsp_dx_list[train_indices], dsp_dx_list[test_indices]
-        train_dsp_dx, test_dsp_dx = train_dsp_dx.reshape(-1, 3, dsp_dx_list.shape[-1]), test_dsp_dx.reshape(-1, 3, dsp_dx_list.shape[-1])
-        if scale_soaps:
-            train_dsp_dx, test_dsp_dx = train_dsp_dx/soap_scaler.scale_, test_dsp_dx/soap_scaler.scale_
-
-    # Convert data to tensorflow tensors where necessary
-    
-    # Maybe it makes sense to wait to do this since I have to convert them back to numpy to split them into validation/training sets anyway
-    # (The only one I didn't have to convert is test_sps_full, but I can just do this later if I'm moving the rest to later)
-#     train_sps_full = tf.constant(train_sps_full, dtype=np.float64)
-#     train_ens = tf.constant(train_ens, dtype=np.float64)
-#     test_sps_full = tf.constant(test_sps_full, dtype=np.float64)
-
-#     if prepare_forces:
-#         train_frcs = tf.constant(train_frcs, dtype=np.float64)
-
-    if not prepare_forces:
-        return train_sps_full, test_sps_full, train_ens, test_ens, train_indices, test_indices, soap_scaler, ens_scaler, ens_var
-    else:
-        return train_sps_full, test_sps_full, train_ens, test_ens, train_indices, test_indices, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var
-
-
 def self_energy(element, use_librascal_values=False, dtype=np.float64):
     if use_librascal_values:
         self_contributions = {
@@ -225,27 +148,25 @@ def RetrieveEnergyFromASE(struct, alt_keyword=""):
 
 def GatherStructureInfo(struct_list, gather_forces = True, use_self_energies=True, alt_energy_keyword="", dtype=np.float64):
 
-    pos_list =  np.array([atoms.positions for atoms in struct_list])
+    pos_list =  [list(atoms.positions) for atoms in struct_list]
     
-    en_list = np.array([[RetrieveEnergyFromASE(struct, alt_keyword = alt_energy_keyword)/len(struct) \
-                         - self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct] for struct in struct_list], dtype=dtype)
+    # Use .get_potential_energies() method instead
+    en_list = [[RetrieveEnergyFromASE(struct, alt_keyword = alt_energy_keyword)/len(struct) \
+                         - self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct] for struct in struct_list]
     
     n_atom_list = np.array([len(struct) for struct in struct_list])
 
     if gather_forces:
-        frc_list = np.array([atom.get_forces() for atom in struct_list], dtype=np.float64)
+        frc_list = [atom.get_forces() for atom in struct_list]
     else:
         frc_list = [no_forces_string] * len(en_list)
         
-    return en_list, frc_list, pos_list
+    return en_list, frc_list, pos_list, n_atom_list
 
 def GenerateDescriptorsAndDerivatives(struct_list, nmax, lmax, rcut, smear=0.3, attach=True, is_periodic=False, return_derivatives=True, get_local_descriptors = True):
     
-    relevant_species = np.unique(struct_list[0].get_chemical_symbols())
-    
     dscribe_output = get_dscribe_descriptors(
                                             struct_list, 
-                                            species=relevant_species, 
                                             attach=attach, 
                                             is_periodic = is_periodic,
                                             is_global= not get_local_descriptors,
@@ -264,6 +185,90 @@ def GenerateDescriptorsAndDerivatives(struct_list, nmax, lmax, rcut, smear=0.3, 
         dsp_dx_list = [no_forces_string] * len(sp_list)
     
     return dsp_dx_list, sp_list
+
+# train_n_atoms = n_atoms[train_structure_indices]; test_n_atoms = n_atoms[test_structure_indices]
+# train_energies_nested = [all_energies_nested[i] for i in train_structure_indices]; test_energies_nested = [all_energies_nested[i] for i in test_structure_indices]
+# train_energies = np.concatenate(train_energies_nested); test_energies = np.concatenate(test_energies_nested)
+# train_atom_indices = np.repeat(range(len(train_structure_indices)), train_n_atoms); test_atom_indices = np.repeat(range(len(test_structure_indices)), test_n_atoms)
+# # [training hyperparamters and making predictions goes here]
+# # now we have predicted_energies_local =  predict_energies(*args, **kwargs)
+# predicted_energies_local = my_prediction(test_energies)
+# predicted_energies_global = [0] * len(test_structure_indices)
+# for i in range(len(predicted_energies_local)):
+#     predicted_energy_local_i = predicted_energies_local[i]
+#     predicted_energies_global[test_atom_indices[i]] += predicted_energy_local_i
+# print(predicted_energies_global)
+
+
+def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, nat_list, split_seed, prepare_forces, train_fract, scale_soaps):
+    # This comment itself needs to be split up now haha
+    
+    # Split all data into training and test sets.
+    # Test sets will not be viewed until training is done
+    # Intra-structural information is not reshaped into local atomic information until after splitting
+    # This means structures will be fully in the training or test sets, not split between both
+    # It also means it will be possible to predict global energies in the test set
+    
+    train_indices, test_indices  = train_test_split(np.arange(len(sp_list)), random_state = split_seed, test_size = 1 - train_fract )
+    
+    train_ens = [en_list[i] for i in train_indices]; test_ens = [en_list[i] for i in test_indices]
+    train_ens, test_ens = np.concatenate(train_ens).reshape(-1, 1), np.concatenate(test_ens).reshape(-1, 1)
+
+    train_nats, test_nats = nat_list[train_indices], nat_list[test_indices]
+    train_struct_bools = np.repeat(np.eye(len(train_nats), dtype=np.float64), train_nats, axis=1)
+    test_struct_bools = np.repeat(np.eye(len(test_nats), dtype=np.float64), test_nats, axis=1)
+    train_nats, test_nats = np.repeat(train_nats, train_nats).reshape((-1, 1)), np.repeat(test_nats, test_nats).reshape((-1, 1))
+
+    # Scale energies to have zero mean and unit variance.
+    # Divide forces by the same scale factor but don't subtract the mean
+
+    ens_scaler = StandardScaler().fit(train_ens)
+    train_ens, test_ens = ens_scaler.transform(train_ens), ens_scaler.transform(test_ens)
+    # The following line is for the tensorflow code. If it is commented out, it is for the gpflow code
+    #train_ens, test_ens = train_ens.flatten(), test_ens.flatten()
+    ens_var = train_ens.var()
+    
+    if prepare_forces:
+        train_frcs = [frc_list[i] for i in train_indices]; test_frcs = [frc_list[i] for i in test_indices]
+        train_frcs, test_frcs = np.concatenate(train_frcs, axis=0), np.concatenate(test_frcs, axis=0)
+        train_frcs, test_frcs = train_frcs / ens_scaler.scale_, test_frcs / ens_scaler.scale_
+        frcs_var = train_frcs.var()
+            
+    # soap section
+    train_sps_full, test_sps_full = [sp_list[i] for i in train_indices], [sp_list[i] for i in test_indices]
+    train_sps_full, test_sps_full = np.concatenate(train_sps_full), np.concatenate(test_sps_full)
+    
+    # Scale soaps to have zero mean and unit variance.
+    # Divide derivatives by the same scale factor but don't subtract the mean
+    
+    soap_scaler = StandardScaler().fit(train_sps_full)
+    if scale_soaps:
+        train_sps_full, test_sps_full = soap_scaler.transform(train_sps_full), soap_scaler.transform(test_sps_full)
+    
+    if prepare_forces:
+        train_dsp_dx, test_dsp_dx = [dsp_dx_list[i] for i in train_indices], [dsp_dx_list[i] for i in test_indices]
+        train_dsp_dx, test_dsp_dx = np.concatenate(train_dsp_dx).reshape(-1, 3, dsp_dx_list.shape[-1]), np.concatenate(test_dsp_dx).reshape(-1, 3, dsp_dx_list.shape[-1])
+        if scale_soaps:
+            train_dsp_dx, test_dsp_dx = train_dsp_dx/soap_scaler.scale_, test_dsp_dx/soap_scaler.scale_
+    
+
+
+    # Convert data to tensorflow tensors where necessary
+    
+    # Maybe it makes sense to wait to do this since I have to convert them back to numpy to split them into validation/training sets anyway
+    # (The only one I didn't have to convert is test_sps_full, but I can just do this later if I'm moving the rest to later)
+#     train_sps_full = tf.constant(train_sps_full, dtype=np.float64)
+#     train_ens = tf.constant(train_ens, dtype=np.float64)
+#     test_sps_full = tf.constant(test_sps_full, dtype=np.float64)
+
+#     if prepare_forces:
+#         train_frcs = tf.constant(train_frcs, dtype=np.float64)
+
+    if not prepare_forces:
+        return train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var
+    else:
+        return train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var
+
 
 
 def SparsifySoaps(train_soaps, train_energies= [], test_soaps = [], sparsify_samples=False, n_samples=0, sparsify_features=False, n_features=0, selection_method="CUR", **kwargs):

@@ -4,9 +4,9 @@
         "print_timings": true
     },
     "output_settings":{
-        "title" : "Debugging_Sean",
+        "title" : "Test",
         "make_output_files":true,
-        "save_dataset_animation" : true,
+        "save_dataset_animation" : false,
         "append_date_to_title": true,
         "suppress_banner": false
     },
@@ -21,14 +21,14 @@
             "is_periodic": false
         },
         "ASE_generated_structure_settings": {
-            "chemical_formula": "C6H6",
+            "chemical_formula": null,
             "diatomic_settings": {
                 "diatomic_element": "H",
                 "diatomic_bond_length": 1.2
             }
         },
         "molecular_dynamics_settings": {
-            "molecular_dynamics": true,
+            "molecular_dynamics": false,
             "md_index": 0,
             "md_temp": 0,
             "md_energy_calculator": "EMT",
@@ -36,13 +36,13 @@
             "md_time_step": 0.1,
             "md_seed": 1
         },
-        "n_structs": 200,
+        "n_structs": 800,
         "split_seed": 2
     },
     "soap_descriptor_settings": {
         "rcut": 6,
-        "nmax": 8,
-        "lmax": 4,
+        "nmax": 11,
+        "lmax": 5,
         "smear": 0.3,
         "attach_SOAP_center": true
     },
@@ -56,7 +56,7 @@
         },
         "data_processing_settings": {
             "label_processing_settings": {
-                "use_self_energies": true
+                "use_self_energies": false
             },
             "feature_processing_settings": {
                 "scale_soaps": false,
@@ -70,7 +70,7 @@
         "valid_fract": 0.9,
         "batch_size_max": 10000,
         "learn_rate": 0.02,
-        "n_epochs": 10,
+        "n_epochs": 1,
         "min_print_frequency": 2,
         "prediction_calculation": "predict_f",
         "my_priority": "consistency",

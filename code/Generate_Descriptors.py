@@ -9,7 +9,7 @@ def get_dscribe_descriptors(atoms_list, species = [], rcut = 3.2, nmax = 5, lmax
                             is_global=False, return_derivatives = False, positions = [],
                             rbf_type="gto", is_periodic=False, attach=False, smear=1.0, n_jobs = 1):
     atoms_list = [atoms_list] if isinstance(atoms_list, Atoms) else atoms_list
-    species = species if len(species) else np.unique(sum([atoms_list[i].get_chemical_symbols() for i in range(len(atoms_list))], []))
+    species = species if len(species) else np.unique(sum([atoms_list_i.get_chemical_symbols() for atoms_list_i in atoms_list], []))
     averaging_keyword = "outer" if is_global else "off"
 
     soap = SOAP(average=averaging_keyword,  species=species, periodic=is_periodic, rcut=rcut, nmax=nmax, lmax=lmax, rbf=rbf_type, sigma=smear)

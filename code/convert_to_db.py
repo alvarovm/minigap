@@ -5,6 +5,8 @@ import os.path as path
 import os
 import ase.db
 import ase.io
+from ase import Atoms
+from ase.calculators.singlepoint import SinglePointCalculator
 
 def assign_precalculated_energy(structs, energy_keyword):
     if isinstance(structs, Atoms):
@@ -23,7 +25,8 @@ def assign_precalculated_energy(structs, energy_keyword):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-efb', '--existing_file_behavior', type=str, default="skip", choices = ["skip", "overwrite", "append"], help='Specifies what to do when a requested database file already exists. This flag needs to come before all filenames.')
-parser.add_argument('filenames', nargs=argparse.REMAINDER, help="List of filenames to convert")
+parser.add_argument('-aek', '--alt_energy_keyword', type=str, help='If you have energies stored using a keyword other than "energy", specify that here. This flag needs to come before all filenames.')
+parser.add_argument('filenames', nargs=argparse.REMAINDER, help="List of filenames to convert. Filenames must be last argument of this command.")
 cmdline_args = parser.parse_args()
 
 script_path = path.dirname(path.realpath(__file__))
@@ -54,6 +57,10 @@ for filename_in in cmdline_args.filenames:
             os.remove(filename_out)
         print("Importing data from {}".format(filename_in), end=" ... ")
         Atoms_objects = ase.io.read(filename_in, ":")
+        print("cmdline_args.alt_energy_keyword =", cmdline_args.alt_energy_keyword)
+        if cmdline_args.alt_energy_keyword:
+            print("Assigning energies using the keyword '{}'".format(cmdline_args.alt_energy_keyword))
+            Atoms_objects = assign_precalculated_energy(Atoms_objects, cmdline_args.alt_energy_keyword)
         print("Exporting data to {}".format(filename_out))
         db = ase.db.connect(filename_out)
         for Atoms_object in Atoms_objects:

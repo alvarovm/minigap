@@ -7,9 +7,15 @@ import collections
 import base64
 import pandas as pd #I use this for printing a table. Place in try except eventually
 
+def generate_unique_id():
+    return base64.b64encode(os.urandom(64)).decode().replace("/", "").replace("+", "")[:5]
+
+# From https://stackoverflow.com/a/16671271
+# Number to ordinal string
+def ord(n):
+    return str(n)+("th" if 4<=n%100<=20 else {1:"st",2:"nd",3:"rd"}.get(n%10, "th"))
 
 # Adapted from stackoverflow.com/a/41477104
-
 class Logger(object):
     def __init__(self, filename):
         # This makes it so the Logger.terminal attribute accesses the sys.stdout object that 
@@ -99,9 +105,6 @@ def flatten_dict(d_in, d_out='',  key_min_parent_level=0, key_max_parents=0, key
             else:
                 d_out[hierarchical_key_i] = v
     return d_out
-
-def generate_unique_id():
-    return base64.b64encode(os.urandom(64)).decode().replace("/", "").replace("+", "")[:5]
 
 def make_unique_directory(ideal_directory_name, identifier_type="counter", verbose=False):
     # Remove possible trailing "/" because it would interfere with this code
@@ -207,7 +210,6 @@ def plot_energy_errors(global_ens, predicted_global_ens, model_description = "mo
     axs[0].text(0.25, 0.75, "r2 = {:.3f}".format(global_r2), horizontalalignment='center', verticalalignment='center', transform=axs[0].transAxes)
     
 
-    
     global_errors = abs(global_ens-predicted_global_ens)/n_atoms
     errors = abs(predicted_local_ens-local_ens) if use_local else global_errors
     
@@ -251,3 +253,118 @@ def plot_energy_errors(global_ens, predicted_global_ens, model_description = "mo
         axs[2].set_xlabel("Error in Predicted Local Energy/Atom")
         axs[2].set_ylabel("Frequency")
         axs[2].set_title("Error Histogram of Local Energy Predictions\nfor {}".format(model_description))
+
+def separate_outliers(dataset, center_mode = "mean", range_mode="std_dev", percentile_range=50, range_factor=3, 
+                      check_boundary_neighbors=True, neighbor_factor = 0.1, verbose = False, predefined_mode=None):
+    # You can think of this function as defining non-outlier "normal" data and what doesn't fit is an outlier
+    # We define a range around the center of the data to be "normal"
+    # In general this range has the form [A_L - f * B, A_U + f * B ]
+    # We can choose A_L and A_U to be the values of lower and upper percentiles, such as 25% and 75% or we can set them both to the mean
+    # B can be either a percentile range or the standard deviation
+    # f is a factor you can choose to scale B by
+    # 
+    # This range can split apart data points that are very close in value if the range boundaries is between them
+    # This is often undesirable so we can prevent this by iteratively including data that is close enough to the extrma of the "normal" data
+    # Close enough is defined as c * B where c is chosen
+    #
+    # I think this currently only works on a 1D array, but it could be tweaked slightly to word for higher D
+    
+    # I have included the 2 most common definitions as predefined modes. Just supply the keyword
+    if predefined_mode == "3sigma":
+        center_mode = "mean"
+        range_mode="std_dev"
+        range_factor = 3
+        check_boundary_neighbors = False
+    elif predefined_mode == "IQR":
+        center_mode = "percentile"
+        range_mode="percentile"
+        percentile_range=50
+        range_factor = 1.5
+        check_boundary_neighbors = False
+    elif predefined_mode != None:
+        error_message = "Do not recognize predefine_mode '{}'.".format(predefined_mode)
+        error_message += "Choose either '3sigma' or 'IQR' or specify your own settings."
+        raise ValueError(error_message)
+        
+    percentile_upper = 50 + percentile_range/2
+    percentile_lower = 50 - percentile_range/2
+    dataset = np.array(dataset)
+     
+    if center_mode == "mean":
+        center_upper = np.mean(dataset, axis = 0)
+        center_lower = center_upper
+    elif center_mode == "percentile":
+        center_upper = np.percentile(dataset, percentile_upper, axis=0)
+        center_lower = np.percentile(dataset, percentile_lower, axis=0)
+    else:
+        error_message = "Do not recognize center_mode = '{}'.".format(center_mode)
+        error_message += " Choose either 'mean' or 'percentile'."
+        raise ValueError(error_message)
+        
+    if range_mode == "std_dev":
+        range_constant = np.std(dataset, axis=0)
+    elif range_mode == "percentile":
+        range_constant = np.percentile(dataset, percentile_upper, axis=0) - np.percentile(dataset, percentile_lower, axis=0)
+        print(range_constant)
+    else:
+        error_message = "Do not recognize range_mode = '{}'.".format(range_mode)
+        error_message += " Please choose either 'std_dev' or 'percentile'"
+        raise ValueError(error_message)
+        
+    normal_range = {"lower":center_lower - range_factor * range_constant, "upper": center_upper + range_factor * range_constant}
+    lower_outlier_indices = np.where( dataset < normal_range["lower"] )[0]
+    upper_outlier_indices = np.where( dataset > normal_range["upper"] )[0]
+    normal_indices   = np.where( (dataset > normal_range["lower"]) & (dataset < normal_range["upper"]) )[0]
+    normal_data  = dataset[normal_indices]
+    
+    if not check_boundary_neighbors:
+        outlier_indices = np.sort( np.concatenate((lower_outlier_indices, upper_outlier_indices)), axis=0 )
+        outlier_data = dataset[outlier_indices]
+    else:
+        neighborhood = range_constant * neighbor_factor
+        lower_outliers = dataset[lower_outlier_indices]
+        lower_outliers_sort_order = np.argsort(lower_outliers, axis=0)[::-1]
+        lower_outliers_plus = np.concatenate((np.min(normal_data, axis = 0).reshape(1, *normal_data.shape[1:]), lower_outliers))
+        lower_outliers_sorted_diffs = np.diff(np.sort(lower_outliers_plus, axis=0)[::-1], axis=0)
+        lower_close_neighbors_indices = lower_outliers_sort_order[np.cumprod(-lower_outliers_sorted_diffs < neighborhood) == 1]
+        formerly_lower_outliers_indices = lower_outlier_indices[lower_close_neighbors_indices]
+        
+        upper_outliers = dataset[upper_outlier_indices]
+        upper_outliers_sort_order = np.argsort(upper_outliers, axis=0)
+        upper_outliers_plus = np.concatenate((np.max(normal_data, axis = 0).reshape(1, *normal_data.shape[1:]), upper_outliers))
+        upper_outliers_sorted_diffs = np.diff(np.sort(upper_outliers_plus, axis=0), axis=0)
+        upper_close_neighbors_indices = upper_outliers_sort_order[np.cumprod(upper_outliers_sorted_diffs < neighborhood) == 1]
+        formerly_upper_outliers_indices = upper_outlier_indices[upper_close_neighbors_indices]
+
+        normal_indices = np.sort(np.concatenate((normal_indices, formerly_upper_outliers_indices, formerly_lower_outliers_indices) ), axis=0)
+        all_indices = np.arange(len(dataset))
+        outlier_indices = all_indices[~np.isin(all_indices, normal_indices)]
+    
+        outlier_data = dataset[outlier_indices]
+        normal_data  = dataset[normal_indices]
+
+    if verbose:
+        if center_mode == "mean":
+            center_upper_string = "mean"
+            center_lower_string = "mean"
+        else:
+            center_upper_string = "{} percentile".format(ord(int(percentile_upper) ) )
+            center_lower_string = "{} percentile".format(ord(int(percentile_lower) ) )
+        
+        if range_mode == "std_dev":
+            range_constant_string = "std_dev"
+        else:
+            range_constant_string = "{}-{} percentile range".format(ord(int(percentile_lower) ), ord(int(percentile_upper) ) )
+        outlier_settings_message = "Outliers defined to exist outside the range ({} - {}*{}, {} + {}*{}), i.e. "\
+                                    .format(center_lower_string, range_factor, range_constant_string, center_upper_string, \
+                                    range_factor, range_constant_string)
+        outlier_settings_message += "({:.2f}, {:.2f}).".format(normal_range["lower"], normal_range["upper"])
+        if check_boundary_neighbors:
+            outlier_settings_message += "\nAdditionally, data was not considered an outlier if it fell outside that range, but was within"
+            outlier_settings_message += " {} * {} ( = {:.2f}) of non-outlier data".format(neighbor_factor, range_constant_string, neighborhood)
+        if len(dataset.shape) == 1:
+            outlier_settings_message += "\n{} of the {} data were found to be outliers.".format(len(outlier_data), len(dataset))
+        print(outlier_settings_message)
+    
+    
+    return normal_data, outlier_data, normal_indices, outlier_indices
