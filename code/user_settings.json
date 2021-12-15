@@ -1,7 +1,5 @@
 {
     "title": "New_Test",
     "output_energy_units": "kcal/mol",
-    "n_structs":200,
-    "structure_file": null,
-    "chemical_formula": null
+    "n_structs":200
 }
