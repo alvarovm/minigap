@@ -22,8 +22,10 @@ import sys
 sys.path.append('../code')
 from Generate_Descriptors import get_dscribe_descriptors
 from Molecular_Dynamics import generate_md_traj
+from plot_helpers import *
+from analysis_helpers import *
 from general_helpers import make_unique_directory
-from ASE_helpers import assign_precalculated_energy
+from ASE_helpers import *
 from Visualize_Structures import Structure3DAnimation
 # --------
 no_forces_string = "Not Using Forces"
@@ -146,7 +148,11 @@ def RetrieveEnergyFromASE(struct, alt_keyword=""):
 
     
 
-def GatherStructureInfo(struct_list, gather_forces = True, use_self_energies=True, alt_energy_keyword="", dtype=np.float64):
+def GatherStructureInfo(struct_list, gather_settings ):
+    gather_forces = gather_settings.use_forces
+    use_self_energies= gather_settings.use_self_energies
+    alt_energy_keyword = gather_settings.alt_energy_keyword
+    dtype = gather_settings.dtype
 
     pos_list =  [list(atoms.positions) for atoms in struct_list]
     
@@ -160,7 +166,17 @@ def GatherStructureInfo(struct_list, gather_forces = True, use_self_energies=Tru
         frc_list = [atom.get_forces() for atom in struct_list]
     else:
         frc_list = [no_forces_string] * len(en_list)
-        
+    
+    # Convert units if necessary
+    # Convert to eV and eV/Å during calculation
+    # Because F = -dE/dx, we must use the same x units for the known F values and the predicted F values
+    # In particular, I choose eV and eV/Å because ASE positions are always assumed to be in angstroms
+    # If you are using an input file which has structural information not in angstroms, forces learned by miniGAP will not be accurate
+    en_list = convert_energy(en_list, gather_settings.input_energy_units, "eV")
+    if gather_forces:
+        frc_list = convert_force(frc_list, gather_settings.input_force_units, "eV/ang")
+    
+    
     return en_list, frc_list, pos_list, n_atom_list
 
 def GenerateDescriptorsAndDerivatives(struct_list, nmax, lmax, rcut, smear=0.3, attach=True, is_periodic=False, return_derivatives=True, get_local_descriptors = True):
@@ -186,21 +202,14 @@ def GenerateDescriptorsAndDerivatives(struct_list, nmax, lmax, rcut, smear=0.3, 
     
     return dsp_dx_list, sp_list
 
-# train_n_atoms = n_atoms[train_structure_indices]; test_n_atoms = n_atoms[test_structure_indices]
-# train_energies_nested = [all_energies_nested[i] for i in train_structure_indices]; test_energies_nested = [all_energies_nested[i] for i in test_structure_indices]
-# train_energies = np.concatenate(train_energies_nested); test_energies = np.concatenate(test_energies_nested)
-# train_atom_indices = np.repeat(range(len(train_structure_indices)), train_n_atoms); test_atom_indices = np.repeat(range(len(test_structure_indices)), test_n_atoms)
-# # [training hyperparamters and making predictions goes here]
-# # now we have predicted_energies_local =  predict_energies(*args, **kwargs)
-# predicted_energies_local = my_prediction(test_energies)
-# predicted_energies_global = [0] * len(test_structure_indices)
-# for i in range(len(predicted_energies_local)):
-#     predicted_energy_local_i = predicted_energies_local[i]
-#     predicted_energies_global[test_atom_indices[i]] += predicted_energy_local_i
-# print(predicted_energies_global)
 
 
-def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, nat_list, split_seed, prepare_forces, train_fract, scale_soaps):
+def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, nat_list, prep_settings):
+    split_seed = prep_settings.split_seed
+    prepare_forces = prep_settings.use_forces
+    train_fract = prep_settings.train_fraction
+    scale_soaps = prep_settings.scale_soaps
+    
     # This comment itself needs to be split up now haha
     
     # Split all data into training and test sets.
@@ -484,7 +493,7 @@ def pick_kernel(kernel_type, **kwargs):
 
 
         
-def create_miniGAP_visualization(struct_list, visualization_settings, output_directory, animation_filename="DEFAULT_FILENAME"):
+def CreateMiniGAPVisualization(struct_list, visualization_settings, output_directory, animation_filename="DEFAULT_FILENAME"):
     save_file = visualization_settings.save_dataset_animation & visualization_settings.make_output_files
     verbose = visualization_settings.verbose
     animation_object = Structure3DAnimation(struct_list)
@@ -493,3 +502,290 @@ def create_miniGAP_visualization(struct_list, visualization_settings, output_dir
         animation_filename = output_directory + animation_filename.replace("DEFAULT_FILENAME", "structure_animation.mp4")
         animation_object.Save(animation_filename)
     return animation_html5
+
+
+def AnalyzeEnergyResults(true_global_ens, predicted_global_ens, analysis_settings,
+                true_local_ens=[], predicted_local_ens=[],
+                predicted_stdev=None, n_atoms=10, in_notebook=True, output_directory="../data/",
+                ax_height = 5, ax_width=7):
+    plot_types = analysis_settings.energy_plots.copy()
+    stat_types = analysis_settings.error_stats.copy()
+    units = analysis_settings.output_energy_units
+    local_units = units + "/Atom"
+    verbose=analysis_settings.verbose
+    color = analysis_settings.color
+    
+    local_err_stats, local_err  = compile_error_stats( predicted_local_ens,  true_local_ens, stats_to_calculate = stat_types, verbose=verbose)
+    global_err_stats, global_err = compile_error_stats(predicted_global_ens, true_global_ens, stats_to_calculate = stat_types, verbose=verbose)
+    global_err_per_atom_stats, global_err_per_atom = compile_error_stats(predicted_global_ens/n_atoms, true_global_ens/n_atoms, stats_to_calculate = stat_types, 
+                                                                         verbose=verbose)
+
+    
+    available_plot_types = ("predicted_vs_true", "global_log_error_histogram", "global_error_per_atom_histogram", "local_log_error_histogram")
+    error_info = {}
+    system_label = analysis_settings.title + " Calculation" if analysis_settings.title else ""
+    global_ens_range = get_data_bounds(true_global_ens, predicted_global_ens, buffer=0.05)
+    exponent_range = get_exponent_range((local_err, global_err, global_err_per_atom ), max_min=-5, min_max=-1)
+    global_err_range = get_data_bounds(global_err, buffer=0.05)
+    local_err_range = get_data_bounds([local_err, global_err_per_atom], buffer=0.05)
+    if analysis_settings.crop_energy_outliers:
+        if "predicted_vs_true" in plot_types:
+            if verbose:
+                print("Checking if outliers exists among energy predictions.")            
+            cropped_range = suggest_outlier_cropping_for_true_vs_predicted_plot(true_global_ens, predicted_global_ens, buffer = 0, verbose=verbose)
+            # The cropping must reduce the range by at least 25% or it isn't performed
+            # If the cropping is small it might just confuse people without making a plot that is any more readable than the original
+            if np.ptp(cropped_range) < 0.75 * np.ptp(global_ens_range):
+                plot_types.append("predicted_vs_true_cropped")
+            else:
+                print("Cropping energy plots determined to be unnecessary.")
+    fig, axs = plt.subplots(figsize = (len(plot_types) * ax_width, ax_height), ncols = len(plot_types) )
+
+    for i in range(len(plot_types)):
+        ax = axs[i]
+        plot_type = plot_types[i]
+        if plot_type == "predicted_vs_true":
+            global_r2 = global_err_stats["r2"] if "r2" in stat_types else None
+            linear_fit_params = (global_err_stats["m"], global_err_stats["b"]) if "linfit" in stat_types else None
+            linear_fit_params = linear_fit_params if linear_fit_params != (None, None) else None
+            plot_predicted_vs_true(predicted_global_ens, true_global_ens, ax, variable_label = "Global Energy", units=units, system_label = system_label, r2=global_r2, 
+                                   stderr=predicted_stdev, linear_fit_params = linear_fit_params, x_range=global_ens_range, y_range=global_ens_range, color=color, ms=5)
+        elif plot_type == "predicted_vs_true_cropped":
+            global_r2 = global_err_stats["r2"] if "r2" in stat_types else None
+            plot_predicted_vs_true(predicted_global_ens, true_global_ens, ax, variable_label = "Global Energy", units=units, system_label = system_label, r2=global_r2, 
+                                   stderr=predicted_stdev, linear_fit_params = linear_fit_params, x_range=cropped_range, y_range=cropped_range, color=color, ms=5)
+        elif plot_type == "global_log_error_histogram":
+            variable_label="Global Energy"
+            if variable_label not in error_info:
+                error_info[variable_label]=dict(Units=units, **global_err_stats)
+            plot_error_log_histogram(global_err, ax, variable_label = "{} Prediction".format(variable_label), units=units, system_label = system_label, exponent_range = exponent_range,
+                             color=color)
+        elif plot_type == "global_log_error_per_atom_histogram":
+            variable_label="Global Energy/Atom"
+            if variable_label not in error_info:
+                error_info[variable_label]=dict(Units=local_units, **global_err_per_atom_stats)
+            plot_error_log_histogram(global_err_per_atom, ax, variable_label = "{} Prediction".format(variable_label), units=local_units, system_label = system_label, 
+                                     exponent_range = exponent_range, color=color)    
+        elif plot_type == "local_log_error_histogram":
+            variable_label="Local Energy"
+            if variable_label not in error_info:
+                error_info[variable_label] = dict(Units=local_units, **local_err_stats)
+            plot_error_log_histogram(local_err, ax, variable_label = "{} Prediction".format(variable_label), units=local_units, system_label = system_label, 
+                                     exponent_range = exponent_range, color=color)
+        elif plot_type == "global_error_histogram":
+            variable_label="Global Energy"
+            if variable_label not in error_info:
+                error_info[variable_label]=dict(Units=units, **global_err_stats)
+            plot_error_histogram(global_err, ax, variable_label = "{} Prediction".format(variable_label), units=units, system_label = system_label, data_range = global_err_range,
+                             color=color)
+        elif plot_type == "global_error_per_atom_histogram":
+            variable_label="Global Energy/Atom"
+            if variable_label not in error_info:
+                error_info[variable_label]=dict(Units=local_units, **global_err_per_atom_stats)
+            plot_error_histogram(global_err_per_atom, ax, variable_label = "{} Prediction".format(variable_label), units=local_units, system_label = system_label, 
+                                     data_range = local_err_range, color=color)    
+        elif plot_type == "local_error_histogram":
+            variable_label="Local Energy"
+            if variable_label not in error_info:
+                error_info[variable_label] = dict(Units=local_units, **local_err_stats)
+            plot_error_histogram(local_err, ax, variable_label = "{} Prediction".format(variable_label), units=local_units, system_label = system_label, 
+                                     data_range = local_err_range, color=color)            
+        else:
+            print( "Do not recognize {} as a plot type. Ignoring this input. Next time please choose from: {}.".format(plot_type, available_plot_types) )
+            
+    error_dataframe = compile_error_dataframe(error_info)
+    if in_notebook:
+        display(error_dataframe)
+    else:
+        print(error_dataframe)
+    
+    if analysis_settings.make_output_files:
+        energy_plots_title = "energy_prediction_plots"
+        energy_errors_plot_filename = output_directory + energy_plots_title + ".png"
+        # check if existing, add number to end if it is
+        energy_errors_plot_filename = find_unique_filename(energy_errors_plot_filename, verbose=verbose)
+        plt.savefig(energy_errors_plot_filename)
+        
+        energy_errors_title = "energy_errors"
+        energy_errors_filename = output_directory + energy_errors_title + ".csv"
+        # check if existing, add number to end if it is
+        energy_errors_filename = find_unique_filename(energy_errors_filename, verbose=verbose)
+        error_dataframe.to_csv(energy_errors_filename)        
+        
+def AnalyzeForceResults(true_forces, predicted_forces, analysis_settings,
+                predicted_force_stdevs=None, in_notebook=True, output_directory="../data/", 
+                ax_height = 6, ax_width=7):
+    plot_types = analysis_settings.force_plots.copy()
+    component_types = analysis_settings.force_plots_components.copy()
+    stat_types = analysis_settings.error_stats.copy()
+    units = analysis_settings.output_force_units
+    verbose=analysis_settings.verbose
+    color = analysis_settings.color
+    system_label = analysis_settings.title + " Calculation" if analysis_settings.title else ""
+    
+    # This code is messy. Probably needs a class of some sort (maybe an Axis class) to clean it up
+    available_plot_types = ("predicted_vs_true", "error_histogram", "log_error_histogram")
+    available_component_types = ( "x", "y", "z", "magnitude", "theta", "phi" )
+    index_by_component = { available_component_types[i]:i for i in range(len(available_component_types)) }
+    variable_label_by_component =  { "x":"Fx", "y":"Fy", "z":"Fz", "magnitude":"|F|", "phi":"φ", "theta":"θ" }
+    unit_by_component =  { "x":units, "y":units, "z":units, "magnitude":units, "phi":"°", "theta":"°" }
+    
+    # We have to match up the axes boundaries differently for the angles so we treat them separately
+    # I treat the magnitude plot, Cartesian component plots and angle plots separately when deterimining the boundaries for the true vs predicted plots
+    # I treat the force plots and angle plots separately when deterimining the boundaries for the true vs predicted plots
+    # We also have to assign different units to them
+    last_component_index = 2
+    first_angle_index = 4
+    force_indices_in_use = np.array([index_by_component[c] for c in component_types ])
+    angle_indices_in_use = force_indices_in_use[np.where(force_indices_in_use >= first_angle_index)[0]]
+    component_indices_in_use = force_indices_in_use[np.where(force_indices_in_use <= last_component_index)[0]]
+    force_indices_in_use = force_indices_in_use[np.where(force_indices_in_use < first_angle_index)[0]]
+    
+    # Append columns with magnitude, theta and phi
+    true_forces =      np.concatenate((true_forces,      spherical_from_cartesian(true_forces,      angle_output="deg") ), axis = 1 )
+    predicted_forces = np.concatenate((predicted_forces, spherical_from_cartesian(predicted_forces, angle_output="deg") ), axis = 1 )
+    err_stats, err  = compile_error_stats( predicted_forces,  true_forces, stats_to_calculate = stat_types, verbose=verbose)
+    
+    
+    # Only determine plot ranges if they will be used
+    if len(force_indices_in_use):
+        # For the log hisogram error plots
+        exponent_range = get_exponent_range([err[:,i] for i in force_indices_in_use], max_min=-5, min_max=-1)
+        # For the hisogram error plots
+        err_range = get_data_bounds([err[:,i] for i in force_indices_in_use], buffer=0.05)
+    if len(angle_indices_in_use):
+        # For the hisogram error plots
+        angle_err_range = get_data_bounds([err[:,i] for i in angle_indices_in_use], buffer=0.05)
+        # For the log hisogram error plots
+        angle_exponent_range = get_exponent_range([err[:,i] for i in angle_indices_in_use], max_min=-5, min_max=-1)
+        # For the true vs predicted plots
+        angle_range = get_data_bounds([[0, true_forces[:,i], predicted_forces[:,i]] for i in angle_indices_in_use], buffer=0.05)
+    if len(component_indices_in_use):
+        # For the true vs predicted plots
+        force_range = get_data_bounds([[0, true_forces[:,i], predicted_forces[:,i]] for i in component_indices_in_use], buffer=0.05)
+    if "magnitude" in component_types:
+        # For the true vs predicted plots
+        magnitude_range = get_data_bounds([true_forces[:,index_by_component["magnitude"]], predicted_forces[:,index_by_component["magnitude"]]], buffer=0.05)
+    
+    # for possible cropped true vs predicted plots
+    # Currently (2021/12/14) we use an adjusted IQR method to check for outliers,
+    # i.e. outliers exists outside of the IQR +/- 1.5 IQR and outliers must not be too close to non-outliers
+    if analysis_settings.crop_force_outliers:
+        # We don't crop unless necessary so this flag is False by default
+        cropping_necessary = False
+        # For Fx, Fy, Fz if we plot those
+        if len(component_indices_in_use):
+            if verbose:
+                print("Checking if outliers exists among Cartesian force components predictions.")
+            cropped_force_range = suggest_outlier_cropping_for_true_vs_predicted_plot(true_forces[:, component_indices_in_use],
+                                                                                      predicted_forces[:, component_indices_in_use], buffer = 0, verbose=verbose)
+            # The cropping must reduce the range by at least 25% or it isn't performed
+            # If the cropping is small it might just confuse people without making a plot that is any more readable than the original
+            if np.ptp(cropped_force_range) < 0.75 * np.ptp(force_range):
+                cropping_necessary = True
+        # For F magnitudes we plot those
+        if "magnitude" in component_types:
+            if verbose:
+                print("Checking if outliers exists among force magnitude predictions.")
+            cropped_magnitude_range = suggest_outlier_cropping_for_true_vs_predicted_plot(true_forces[:, index_by_component["magnitude"]],
+                                                                                      predicted_forces[:, index_by_component["magnitude"]], buffer = 0, verbose=verbose)
+            # The cropping must reduce the range by at least 25% or it isn't performed
+            # If the cropping is small it might just confuse people without making a plot that is any more readable than the original
+            if np.ptp(cropped_magnitude_range) < 0.75 * np.ptp(magnitude_range):
+                cropping_necessary = True
+        # For F angles if we plot those
+        if len(angle_indices_in_use):
+            if verbose:
+                print("Checking if outliers exists among force angle predictions.")            
+            cropped_angle_range = suggest_outlier_cropping_for_true_vs_predicted_plot(true_forces[:, angle_indices_in_use],
+                                                                                      predicted_forces[:, angle_indices_in_use], buffer = 0, verbose=verbose)
+            # The cropping must reduce the range by at least 25% or it isn't performed
+            # If the cropping is small it might just confuse people without making a plot that is any more readable than the original
+            if np.ptp(cropped_angle_range) < 0.75 * np.ptp(angle_range):
+                cropping_necessary = True            
+        
+        if cropping_necessary:
+            plot_types.append("predicted_vs_true_cropped")
+        else:
+            print("Cropping force plots determined to be unnecessary.")
+            
+            
+    
+    fig, axs = plt.subplots(figsize = (len(component_types) * ax_width, len(plot_types)*ax_height), 
+                            nrows = len(plot_types), ncols=len(component_types), constrained_layout=True )
+    error_info = {}
+    for i in range(len(plot_types)):
+        for j in range(len(component_types)):
+            plot_type = plot_types[i]
+            component_label = component_types[j]
+            if component_label not in available_component_types:
+                print( "Do not recognize {} as a component type. Ignoring this input. Next time please choose from: {}.".format(component_label, available_component_types) )
+                continue
+            variable_label = variable_label_by_component[component_label]
+            units_j = unit_by_component[component_label]
+            component_index = index_by_component[component_label]
+            true_force_component = true_forces[:, component_index]
+            predicted_force_component = predicted_forces[:, component_index]
+            err_j = err[:, component_index]
+            r2 = err_stats["r2"][component_index] if "r2" in stat_types else None
+            r2 = r2 if np.isfinite(r2) else None
+            linear_fit_params = (err_stats["m"][component_index], err_stats["b"][component_index]) if "linfit" in stat_types else None
+            linear_fit_params = linear_fit_params if linear_fit_params != (None, None) else None
+            predicted_stdev = predicted_force_stdevs[:, component_index] if predicted_force_stdevs is not None else None
+            error_info_j = {key:value[component_index] for key,value in err_stats.items()}
+            exponent_range_j = exponent_range if component_index < first_angle_index else angle_exponent_range
+            err_range_j = err_range if component_index < first_angle_index else angle_err_range
+            if component_index <= last_component_index:
+                range_j = force_range
+            elif component_index >= first_angle_index:
+                range_j = angle_range
+            else:
+                range_j = magnitude_range
+            
+            ax = axs[i, j]
+            
+            if plot_type == "predicted_vs_true":
+                plot_predicted_vs_true(predicted_force_component, true_force_component, ax, variable_label = variable_label, 
+                                       units=units_j, linear_fit_params = linear_fit_params, x_range=range_j, y_range=range_j, 
+                                       system_label = system_label, r2=r2, stderr=predicted_stdev, color=color, ms=5)
+            elif plot_type == "predicted_vs_true_cropped":
+                if component_index <= last_component_index:
+                    range_j = cropped_force_range
+                elif component_index >= first_angle_index:
+                    range_j = cropped_angle_range
+                else:
+                    range_j = cropped_magnitude_range
+                plot_predicted_vs_true(predicted_force_component, true_force_component, ax, variable_label = variable_label, 
+                                       units=units_j, linear_fit_params = linear_fit_params, x_range=range_j, y_range=range_j, 
+                                       system_label = system_label + " (Cropped)", r2=r2, stderr=predicted_stdev, color=color, ms=5)
+            elif plot_type == "log_error_histogram":
+                if variable_label not in error_info:
+                    error_info[variable_label]=dict(Units=units_j, **error_info_j)
+                plot_error_log_histogram(err_j, ax, variable_label = "{} Prediction".format(variable_label), units=units_j, system_label = system_label, 
+                                     exponent_range = exponent_range_j, color=color)
+            elif plot_type == "error_histogram":
+                if variable_label not in error_info:
+                    error_info[variable_label]=dict(Units=units_j, **error_info_j)
+                plot_error_histogram(err_j, ax, variable_label = "{} Prediction".format(variable_label), units=units_j, system_label = system_label, 
+                                     data_range = err_range, color=color) 
+            else:
+                print( "Do not recognize {} as a plot type. Ignoring this input. Next time please choose from: {}.".format(plot_type, available_plot_types) )
+                
+    error_dataframe = compile_error_dataframe(error_info)
+    if in_notebook:
+        display(error_dataframe)
+    else:
+        print(error_dataframe)
+
+    if analysis_settings.make_output_files:
+        force_plots_title = "force_prediction_plots"
+        force_errors_plot_filename = output_directory + force_plots_title + ".png"
+        # check if existing, add number to end if it is
+        force_errors_plot_filename = find_unique_filename(force_errors_plot_filename, verbose=verbose)
+        plt.savefig(force_errors_plot_filename)
+        
+        force_errors_title = "force_errors"
+        force_errors_filename = output_directory + force_errors_title + ".csv"
+        # check if existing, add number to end if it is
+        force_errors_filename = find_unique_filename(force_errors_filename, verbose=verbose)
+        error_dataframe.to_csv(force_errors_filename)    

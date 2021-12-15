@@ -3,12 +3,50 @@
         "verbose": true,
         "print_timings": true
     },
-    "output_settings":{
-        "title" : "Test",
-        "make_output_files":true,
-        "save_dataset_animation" : false,
+    "output_settings": {
+        "title": "Test",
+        "make_output_files": true,
+        "save_dataset_animation": false,
         "append_date_to_title": true,
-        "suppress_banner": false
+        "suppress_banner": false,
+        "analysis_settings": {
+            "output_energy_units": "eV",
+            "output_force_units": "eV/ang",
+            "plot_settings": {
+                "color": "mediumseagreen",
+                "energy_plot_settings": {
+                    "energy_plots": [
+                        "predicted_vs_true",
+                        "global_log_error_histogram",
+                        "global_log_error_per_atom_histogram",
+                        "local_log_error_histogram"
+                    ],
+                    "crop_energy_outliers": true
+                },
+                "force_plot_settings": {
+                    "force_plots": [
+                        "predicted_vs_true",
+                        "log_error_histogram"
+                    ],
+                    "force_plots_components": [
+                        "x",
+                        "y",
+                        "z",
+                        "magnitude",
+                        "theta"
+                    ],
+                    "crop_force_outliers": true
+                }
+            },
+            "error_stats": [
+                "rmse",
+                "mae",
+                "mxae",
+                "r2",
+                "logvae",
+                "linfit"
+            ]
+        }
     },
     "calculation_type_settings": {
         "use_forces": true,
@@ -18,6 +56,8 @@
         "structure_file_import_settings": {
             "structure_file": "distorted_propenol.db",
             "alt_energy_keyword": "U0",
+            "input_energy_units": "eV",
+            "input_force_units": "eV/ang",
             "is_periodic": false
         },
         "ASE_generated_structure_settings": {
@@ -28,7 +68,7 @@
             }
         },
         "molecular_dynamics_settings": {
-            "molecular_dynamics": false,
+            "molecular_dynamics": true,
             "md_index": 0,
             "md_temp": 0,
             "md_energy_calculator": "EMT",
@@ -36,13 +76,13 @@
             "md_time_step": 0.1,
             "md_seed": 1
         },
-        "n_structs": 800,
+        "n_structs": 200,
         "split_seed": 2
     },
     "soap_descriptor_settings": {
         "rcut": 6,
-        "nmax": 11,
-        "lmax": 5,
+        "nmax": 8,
+        "lmax": 4,
         "smear": 0.3,
         "attach_SOAP_center": true
     },
@@ -52,7 +92,7 @@
         },
         "sparsity_settings": {
             "sparse_gpflow": false,
-            "n_sparse": 100
+            "n_sparse": 10
         },
         "data_processing_settings": {
             "label_processing_settings": {
@@ -70,7 +110,7 @@
         "valid_fract": 0.9,
         "batch_size_max": 10000,
         "learn_rate": 0.02,
-        "n_epochs": 1,
+        "n_epochs": 0,
         "min_print_frequency": 2,
         "prediction_calculation": "predict_f",
         "my_priority": "consistency",
