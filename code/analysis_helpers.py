@@ -128,7 +128,7 @@ def compile_error_dataframe(error_info):
     
     statistic_labels = {"mean":"Mean Error", "median":"Median Error", "var": "Variance of Error", "mae": "Mean Absolute Error", "mxae":"Max Absolute Error", 
                        "rmse":"Root Mean Squared Error", "r2": "r²", "vae": "Variance of Absolute Error", "logvae" : "Variance of Log Absolute Error",
-                       "m": "Linear Fit y-Intercept", "b": "Linear Fit Slope"}
+                       "b": "Linear Fit y-Intercept", "m": "Linear Fit Slope"}
     row_labels = dict(Units="Units", **statistic_labels)
     
     first_column = True
