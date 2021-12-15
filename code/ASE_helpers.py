@@ -22,6 +22,14 @@ def assign_calc(molecule, calc_type):
         return
     return molecule
 
+    
+def retrieve_ASE_energy(struct, alt_keyword=""):
+    if struct.calc != None:
+        return struct.get_potential_energy()
+    else:
+        return struct.info[alt_keyword]
+
+
 def assign_precalculated_energy(structs, energy_keyword):
     if isinstance(structs, Atoms):
         structs = [structs]

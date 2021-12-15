@@ -4,7 +4,7 @@
         "print_timings": true
     },
     "output_settings": {
-        "title": "Test",
+        "title": "Calculation",
         "make_output_files": true,
         "save_dataset_animation": false,
         "append_date_to_title": true,
@@ -49,7 +49,7 @@
         }
     },
     "calculation_type_settings": {
-        "use_forces": true,
+        "use_forces": false,
         "dtype": "float64"
     },
     "structure_dataset_settings": {
@@ -76,7 +76,7 @@
             "md_time_step": 0.1,
             "md_seed": 1
         },
-        "n_structs": 200
+        "n_structs": 600
     },
     "soap_descriptor_settings": {
         "rcut": 6,
@@ -117,8 +117,5 @@
         "valid_split_seed": 2,
         "shuffle_seed": 2,
         "tf_seed": 2
-    },
-    "misc": {
-        "no_forces_string": "Not Using Forces"
     }
 }

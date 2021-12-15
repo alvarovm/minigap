@@ -137,44 +137,42 @@ def self_energy(element, use_librascal_values=False, dtype=np.float64):
         return self_contributions[element]
     else:
         return np.array(0, dtype=dtype)    
-    
-    
-def RetrieveEnergyFromASE(struct, alt_keyword=""):
-    if struct.calc != None:
-        return struct.get_potential_energy()
-    else:
-        return struct.info[alt_keyword]
 
     
 
 def GatherStructureInfo(struct_list, gather_settings ):
     gather_forces = gather_settings.use_forces
     use_self_energies= gather_settings.use_self_energies
-    alt_energy_keyword = gather_settings.alt_energy_keyword
+    alt_en_kw = gather_settings.alt_energy_keyword
     dtype = gather_settings.dtype
-
+    
     pos_list =  [list(atoms.positions) for atoms in struct_list]
-    
-    # Use .get_potential_energies() method instead
-    en_list = [[RetrieveEnergyFromASE(struct, alt_keyword = alt_energy_keyword)/len(struct) \
-                         - self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct] for struct in struct_list]
-    
     n_atom_list = np.array([len(struct) for struct in struct_list])
+    
 
-    if gather_forces:
-        frc_list = [atom.get_forces() for atom in struct_list]
-    else:
-        frc_list = [no_forces_string] * len(en_list)
-    
-    # Convert units if necessary
-    # Convert to eV and eV/Å during calculation
-    # Because F = -dE/dx, we must use the same x units for the known F values and the predicted F values
-    # In particular, I choose eV and eV/Å because ASE positions are always assumed to be in angstroms
-    # If you are using an input file which has structural information not in angstroms, forces learned by miniGAP will not be accurate
-    en_list = convert_energy(en_list, gather_settings.input_energy_units, "eV")
-    if gather_forces:
-        frc_list = convert_force(frc_list, gather_settings.input_force_units, "eV/ang")
-    
+    en_list = []
+    frc_list = []
+    for struct in struct_list:
+        # get average atomic energy for each atom
+        # Can we use .get_potential_energies() method instead? 
+        en_list_i = [retrieve_ASE_energy(struct, alt_keyword = alt_en_kw)/len(struct) for atom in struct]
+        # Convert units if necessary
+        # Convert to eV and eV/Å during calculation
+        # Because F = -dE/dx, we must use the same x units for the known F values and the predicted F values
+        # In particular, I choose eV and eV/Å because ASE positions are always assumed to be in angstroms
+        # If you are using an input file which has structural information not in angstroms, forces learned by miniGAP will not be accurate
+        en_list_i = convert_energy(en_list_i, gather_settings.input_energy_units, "eV") 
+        # Subtract energy of free atoms if specified by user
+        en_list_i -= [ self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct]
+        en_list.append(en_list_i)
+        
+        if gather_forces:
+            frc_list_i = struct.get_forces()
+            # See above note about unit conversion
+            frc_list_i = convert_force(frc_list_i, gather_settings.input_force_units, "eV/ang")
+        else:
+            frc_list_i = no_forces_string
+        frc_list.append(frc_list_i)  
     
     return en_list, frc_list, pos_list, n_atom_list
 
