@@ -26,7 +26,6 @@ from plot_helpers import *
 from analysis_helpers import *
 from general_helpers import make_unique_directory
 from ASE_helpers import *
-from Visualize_Structures import Structure3DAnimation
 # --------
 no_forces_string = "Not Using Forces"
 
@@ -494,6 +493,9 @@ def pick_kernel(kernel_type, **kwargs):
 
         
 def CreateMiniGAPVisualization(struct_list, visualization_settings, output_directory, animation_filename="DEFAULT_FILENAME"):
+
+    from Visualize_Structures import Structure3DAnimation
+
     save_file = visualization_settings.save_dataset_animation & visualization_settings.make_output_files
     verbose = visualization_settings.verbose
     animation_object = Structure3DAnimation(struct_list)

@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd #I use this for printing a table. Place in try except eventually
 import warnings
 
 # --------
@@ -124,6 +123,7 @@ def get_exponent_range(data, max_min=-2, min_max=2):
         return (max_min, min_max)
 
 def compile_error_dataframe(error_info):
+    import pandas as pd #I use this for printing a table. Place in try except eventually
     # error_info has the format {"Column Heading":{"stat keyword":stat value, ... }, ... }
     
     statistic_labels = {"mean":"Mean Error", "median":"Median Error", "var": "Variance of Error", "mae": "Mean Absolute Error", "mxae":"Max Absolute Error", 
