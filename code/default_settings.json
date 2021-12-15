@@ -59,7 +59,6 @@
             "input_energy_units": "eV",
             "input_force_units": "eV/ang",
             "is_periodic": false
-            "n_struct_percent"
         },
         "ASE_generated_structure_settings": {
             "chemical_formula": null,
