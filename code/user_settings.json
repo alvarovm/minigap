@@ -1,7 +1,8 @@
 {
-    "title": "New_Test",
+    "title": "Test",
     "structure_file": "qm7b.db",
     "output_energy_units": "kcal/mol",
     "input_energy_units": "kcal/mol",
-    "n_structs":1000
+    "import_fraction": 0.1,
+    "n_train": 400
 }

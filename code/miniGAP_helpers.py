@@ -41,7 +41,13 @@ def make_miniGAP_results_subdirectory(settings, date, miniGAP_parent_directory="
 
 
 
-def import_structures(filename, n_structs, verbose=False, in_notebook=True, miniGAP_parent_directory = "../", by_indices=False, indices=[]):
+def import_structs_for_miniGAP(import_settings, in_notebook=True, miniGAP_parent_directory = "../", by_indices=False):
+    filename = import_settings.structure_file
+    verbose = import_settings.verbose 
+    indices = [import_settings.md_index]
+    
+    tested_filetypes = (".xyz", ".extxyz", ".extxyz.gz", ".xyz.gz", ".db")
+    
     if "/" not in filename:
         filename = miniGAP_parent_directory + "data/" + filename
     filetype = "." + filename.split("/")[-1].split(".", 1)[1]
@@ -54,60 +60,77 @@ def import_structures(filename, n_structs, verbose=False, in_notebook=True, mini
                 print("Imported structure #{} from {}.".format(indices[0], filename))
             else:
                 print("Imported {} structures from {} with indices: {}".format(len(indices), filename, indices) )
-    elif filetype in [".xyz", ".extxyz", ".extxyz.gz", ".xyz.gz"]:
-        print("If you plan to use miniGAP with this dataset more than once, it is recommended that you convert this file to a .db file. \
-        \nThe conversion may be slow, but this will save significant time each run of miniGAP thereafter. \
-        \nTo perform this conversion, run the command 'code/convert_to_db.py {}' from the minigap parent directory".format(filename))
-        if verbose:
-            print("Imported the first {} structures from {} as our dataset.\
-            \nIt would be better to drawn on structures evenly from throughout your full dataset instead of taking only from the beginning.\
-            \nHowever, it would be prohibitively slow to import all structures from a file other than an ASE database file during every miniGAP run.\
-            \nThis is partially why conversion to a .db is recommended.".format(n_structs, filename))
-        StructureList = read(filename, ":{}".format(n_structs))
-    elif filetype == ".db":
-        # from ase.db import connect
-        # db = connect(filename)
-        # FullStructureList = []
-        # for row in db.select():
-        #     FullStructureList.append(db.get_atoms(id = row.id))
+    elif filetype in tested_filetypes:
+        if filetype != ".db":
+            print("If you plan to use miniGAP with this dataset more than once, it is recommended that you convert this file to a .db file. \
+            \nThe conversion may be slow, but this will save significant time each run of miniGAP thereafter. \
+            \nTo perform this conversion, run the command 'code/convert_to_db.py {}' from the minigap parent directory".format(filename))
+          
         FullStructureList = read(filename, ":")
-        StructureList = FullStructureList[::len(FullStructureList)//n_structs][:n_structs]
+        n_full_dataset = len(FullStructureList)
+        if import_settings.import_fraction is not None:
+            if not (import_settings.import_fraction <= 1 and import_settings.import_fraction > 0):
+                import_frac_err = "Cannot use '{}' as import_fraction. Please choose a number ∈ (0, 1] for import_fraction ".format(import_settings.import_fraction)
+                import_frac_err += "or explicitly instruct miniGAP to import N structures with the settings import_fraction=null and n_total = N ."
+                raise ValueError(import_frac_err)
+            elif verbose:
+                print("Importing {:.0%} of dataset...".format(import_settings.import_fraction), end="")
+            n_total = int(import_settings.import_fraction * n_full_dataset)
+        else:
+            if import_settings.n_total > n_full_dataset:
+                print("Cannot import {} structures from a dataset containing {} structures. Importing all structures instead.".format(import_settings.n_total, n_full_dataset))
+            n_total = min(import_settings.n_total, n_full_dataset)
+        StructureList = FullStructureList[::n_full_dataset//n_total][:n_total]
         if verbose:
-            print("Imported {} structures from {}. Structures were taken uniformly from throughout dataset which contains {} total structures.".format(len(StructureList), filename, len(FullStructureList)))
+            print("Imported {} structures from {}. Structures were taken uniformly from throughout dataset which contains {} total structures.".format(len(StructureList), import_settings.structure_file, n_full_dataset))
+            # old code
+#             if filetype == ".db":
+#                 from ase.db import connect
+#                 db = connect(filename)
+#                 FullStructureList = []
+#                 for row in db.select():
+#                     FullStructureList.append(db.get_atoms(id = row.id))            
+#             else:
+#                 print("Imported the first {} structures from {} as our dataset.\
+#                 \nIt would be better to drawn on structures evenly from throughout your full dataset instead of taking only from the beginning.\
+#                 \nHowever, it would be prohibitively slow to import all structures from a file other than an ASE database file during every miniGAP run.\
+#                 \nThis is partially why conversion to a .db is recommended.".format(n_total, filename))
+#                 StructureList = read(filename, ":{}".format(n_total))
+
     else:
-        print("Do not currently recognize filetype {}. However, it is possible ASE can read this filetype. \
-        \nIf so, modify import_structures function to enable import from {}.".format(filetype, filename))
+        print("Have not yet tested filetype '{}'. However, it is possible ASE can read this filetype. \
+        \nIf so, add this filetype to the tested_filetypes list in the import_structs_for_miniGAP function to enable import from {}.".format(filetype, filename))
         
         if not in_notebook:
             exit()
     return StructureList
 
 
-def GenerateMDTrajForMiniGAP(structure, from_diatomic, md_settings, miniGAP_parent_directory="../", traj_directory = "../data/"):
+def generate_MD_traj_for_miniGAP(structure, from_diatomic, md_settings, miniGAP_parent_directory="../", traj_directory = "../data/"):
     return generate_md_traj(structure=structure, from_diatomic=from_diatomic, preoptimize=False, bond_length=md_settings.diatomic_bond_length, 
-                            element=md_settings.diatomic_element, temperature=md_settings.md_temp, nsteps=md_settings.n_structs,
+                            element=md_settings.diatomic_element, temperature=md_settings.md_temp, nsteps=md_settings.n_total,
                             md_type = md_settings.md_algorithm, calc_type=md_settings.md_energy_calculator, md_seed= md_settings.md_seed, 
-                            time_step=md_settings.md_time_step, verbose=md_settings.verbose, print_step_size=md_settings.n_structs/10, 
+                            time_step=md_settings.md_time_step, verbose=md_settings.verbose, print_step_size=md_settings.n_total/10, 
                             plot_energies="off", parent_directory=miniGAP_parent_directory, traj_directory = traj_directory)
 
 def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directory, output_directory="../results/"):
     if structure_settings.structure_file in (None, "None", ""):
         if structure_settings.chemical_formula in (None, "None", ""):
             # Diatomic molecule in MD trajectory
-            struct_list = GenerateMDTrajForMiniGAP(structure=None, from_diatomic=True, md_settings=structure_settings, 
+            struct_list = generate_MD_traj_for_miniGAP(structure=None, from_diatomic=True, md_settings=structure_settings, 
                                                    miniGAP_parent_directory=miniGAP_parent_directory, traj_directory=output_directory )
-
-            # Useful for debugging purposes
+            # This simpler dataset may be useful for debugging purposes
             # Diatomic molecule with evenly spaced bond lengths
             # struct_list = [make_diatomic(element = structure_settings.diatomic_element, verbose=False, bond_length=L, \
-            # calc_type=structure_settings.md_energy_calculator) for L in np.linspace(.6,1.8, structure_settings.n_structs)]
+            #                              calc_type=structure_settings.md_energy_calculator) for L in np.linspace(.6,1.8, structure_settings.n_total)]
 
         else:
+            # Compile dataset by picking a molecule from the g2 collection and performing MD on it
             # ASE creates this g2 collection 'lazily' so we must call each member before we can get a complete list of names
             g2_list = [m for m in g2]
             del g2_list
             if structure_settings.chemical_formula in g2._names:
-                struct_list = GenerateMDTrajForMiniGAP(structure=molecule(structure_settings.chemical_formula), from_diatomic=False, 
+                struct_list = generate_MD_traj_for_miniGAP(structure=molecule(structure_settings.chemical_formula), from_diatomic=False, 
                                                        md_settings=structure_settings, miniGAP_parent_directory=miniGAP_parent_directory,
                                                        traj_directory=output_directory )
             else: 
@@ -118,12 +141,13 @@ def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directo
                     exit()
     else:
         if structure_settings.molecular_dynamics:
-            starter_struct = import_structures(structure_settings.structure_file, structure_settings.n_structs, structure_settings.verbose, in_notebook, miniGAP_parent_directory, 
-                                               by_indices=True, indices=[structure_settings.md_index])[0]
-            struct_list = GenerateMDTrajForMiniGAP(structure=starter_struct, from_diatomic=False, md_settings=structure_settings, 
+            # Compile dataset by picking a structure from the a provided structure fiel and performing MD on it
+            starter_struct = import_structs_for_miniGAP( structure_settings, in_notebook, miniGAP_parent_directory, by_indices=True)[0]
+            struct_list = generate_MD_traj_for_miniGAP(structure=starter_struct, from_diatomic=False, md_settings=structure_settings, 
                                                    miniGAP_parent_directory=miniGAP_parent_directory, traj_directory=output_directory )
         else:
-            struct_list = import_structures( structure_settings.structure_file, structure_settings.n_structs, structure_settings.verbose, in_notebook, miniGAP_parent_directory)
+            # Import dataset directly from file
+            struct_list = import_structs_for_miniGAP( structure_settings, in_notebook, miniGAP_parent_directory)
     return struct_list 
 
 
@@ -204,8 +228,9 @@ def GenerateDescriptorsAndDerivatives(struct_list, nmax, lmax, rcut, smear=0.3, 
 def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, nat_list, prep_settings):
     split_seed = prep_settings.split_seed
     prepare_forces = prep_settings.use_forces
-    train_fract = prep_settings.train_fraction
     scale_soaps = prep_settings.scale_soaps
+    n_total =  len(nat_list)
+    verbose = prep_settings.verbose
     
     # This comment itself needs to be split up now haha
     
@@ -215,14 +240,29 @@ def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, na
     # This means structures will be fully in the training or test sets, not split between both
     # It also means it will be possible to predict global energies in the test set
     
-    train_indices, test_indices  = train_test_split(np.arange(len(sp_list)), random_state = split_seed, test_size = 1 - train_fract )
+    if prep_settings.n_train is not None:
+        if prep_settings.n_train > n_total:
+            print("Cannot use {} structures in the training set because only {} total structures were imported.".format( prep_settings.n_train, n_total ) )
+            print("Attempting to choose the training set using train_fraction.")
+            test_fract = 1 - prep_settings.train_fraction
+        else:
+            test_fract = 1 - prep_settings.n_train / n_total
+    else:
+        test_fract = 1 - prep_settings.train_fraction
+    
+    train_indices, test_indices  = train_test_split(np.arange(n_total), random_state = split_seed, test_size = test_fract )
+    n_train, n_test = len(train_indices), len(test_indices)
+    
+    if verbose:
+        print("Split the {}-structure dataset into a {}-structure training dataset and a {}-structure test dataset.".format(n_total, n_train, n_test) )
+        print("The test dataset will be set aside until the model is trained and ready for prediction.")
     
     train_ens = [en_list[i] for i in train_indices]; test_ens = [en_list[i] for i in test_indices]
     train_ens, test_ens = np.concatenate(train_ens).reshape(-1, 1), np.concatenate(test_ens).reshape(-1, 1)
 
     train_nats, test_nats = nat_list[train_indices], nat_list[test_indices]
-    train_struct_bools = np.repeat(np.eye(len(train_nats), dtype=np.float64), train_nats, axis=1)
-    test_struct_bools = np.repeat(np.eye(len(test_nats), dtype=np.float64), test_nats, axis=1)
+    train_struct_bools = np.repeat(np.eye(n_train, dtype=np.float64), train_nats, axis=1)
+    test_struct_bools = np.repeat(np.eye(n_test, dtype=np.float64), test_nats, axis=1)
     train_nats, test_nats = np.repeat(train_nats, train_nats).reshape((-1, 1)), np.repeat(test_nats, test_nats).reshape((-1, 1))
 
     # Scale energies to have zero mean and unit variance.
@@ -257,16 +297,12 @@ def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, na
         if scale_soaps:
             train_dsp_dx, test_dsp_dx = train_dsp_dx/soap_scaler.scale_, test_dsp_dx/soap_scaler.scale_
     
-
-
-    # Convert data to tensorflow tensors where necessary
-    
+    # Convert data to tensorflow tensors where necessary  
     # Maybe it makes sense to wait to do this since I have to convert them back to numpy to split them into validation/training sets anyway
     # (The only one I didn't have to convert is test_sps_full, but I can just do this later if I'm moving the rest to later)
 #     train_sps_full = tf.constant(train_sps_full, dtype=np.float64)
 #     train_ens = tf.constant(train_ens, dtype=np.float64)
 #     test_sps_full = tf.constant(test_sps_full, dtype=np.float64)
-
 #     if prepare_forces:
 #         train_frcs = tf.constant(train_frcs, dtype=np.float64)
 

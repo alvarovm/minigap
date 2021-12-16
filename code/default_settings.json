@@ -58,7 +58,8 @@
             "alt_energy_keyword": "U0",
             "input_energy_units": "eV",
             "input_force_units": "eV/ang",
-            "is_periodic": false
+            "is_periodic": false,
+            "import_fraction": null
         },
         "ASE_generated_structure_settings": {
             "chemical_formula": null,
@@ -76,7 +77,7 @@
             "md_time_step": 0.1,
             "md_seed": 1
         },
-        "n_structs": 600
+        "n_total": 600
     },
     "soap_descriptor_settings": {
         "rcut": 6,
@@ -91,10 +92,11 @@
         },
         "sparsity_settings": {
             "sparse_gpflow": false,
-            "n_sparse": 10
+            "n_sparse": 600
         },
         "data_processing_settings": {
             "split_seed": 2,
+            "n_train": null,
             "train_fraction": 0.9,
             "label_processing_settings": {
                 "use_self_energies": false
@@ -107,7 +109,7 @@
         }
     },
     "hyperparameter_training_settings": {
-        "valid_fract": 0.9,
+        "valid_fraction": 0.9,
         "batch_size_max": 10000,
         "learn_rate": 0.02,
         "n_epochs": 0,

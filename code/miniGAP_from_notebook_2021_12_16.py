@@ -50,7 +50,7 @@ if tf_gpu_debugging:
         print("No GPU found")
 
 
-# In[26]:
+# In[2]:
 
 
 # This cell performs a couple initialization tasks that have to start before even importing all the libraries or settings
@@ -83,9 +83,11 @@ if not in_notebook:
 
 # import functions
 ## import functions from my files
-from Molecular_Dynamics import generate_md_traj, make_diatomic
 from miniGAP_helpers import *
 from general_helpers import *
+# ideally I wouldn't need to import this
+from ASE_helpers import convert_energy, convert_force
+
 
 ## import functions from libraries
 import os.path as path
@@ -146,8 +148,6 @@ nonetypes = [None, "None", "null", ""]
 
 # Some input parameter notes (not comprehensive):
 # 
-# alt_energy_keyword="U0" for QM9 or ignored for distorted propenols
-# 
 # my_priority = #"efficiency" for experimenting with something new or otherwise "consistency"
 # 
 # controls initial train_test_split breaking apart training and test data  
@@ -167,23 +167,37 @@ nonetypes = [None, "None", "null", ""]
 # kernel_type = #"polynomial" for actual GAP or "exponentiated_quadratic" possibly for debugging  
 # 
 # prediction_calculation = #"direct" OR "predict_f" OR "cholesky" OR "alpha"
+# 
+# import_fraction has priority over n_total  
+# Therefore, set import_fraction = null to use n_total  
+# If you are compiling your dataset in any way other than directly importing it, i.e. using MD of some sort,  
+# then you can only use n_total
+# 
+# n_train has priority over train_fraction  
+# Therefore, set n_train = null to use train_fraction
 
 # In[3]:
 
 
-# This cell imports settings from the JSON file and saves them to JSON_settings_dict 
-# Some settings of JSON_settings_dict may be overwritten by commandline args, but the JSON_settings_dict variable is not edited.
-# It is unused now, but might be useful for debugging.
+# This cell imports settings from the default and user JSON files and saves them to default_JSON_settings_dict and user_JSON_settings_dict respectively
+# The setting priority in descending order is: (1) commandline argument, (2) user_settings JSON, (3) default_settings JSON
+# Some settings from the JSON files may be overwritten by commandline args for use in the code, but the JSON_settings_dict dictionaries is not edited.
+# These disctionaries are currently no longer used after saving them to the namedtuple object (see a few cells down), but they might be useful in the future for debugging.
 # Note 1: You can change the input parameters in the JSON file and rerun the notebook starting from here
 # Note 2: To debug or reformat the JSON file, I recommend jsonformatter.org
 # Note 3: The settings file from which these data are imported has a nested structure. This is exclusively for ease of navigation for the user.
 #         The parent settings names such as "debugging_settings" are completely ignored by the code
 #         Therefore, you can also use a settings file saved from a previous run, which may not have a nested structure.
 
-settings_json_filename = miniGAP_parent_directory + "code/miniGAP_settings.json"
+settings_json_filename = miniGAP_parent_directory + "code/default_settings.json"
 with open(settings_json_filename, encoding = 'utf-8') as settings_file_object:
-    JSON_settings_dict_nested = json.load(settings_file_object)
-JSON_settings_dict = flatten_dict(JSON_settings_dict_nested)
+    default_JSON_settings_dict_nested = json.load(settings_file_object)
+default_JSON_settings_dict = flatten_dict(default_JSON_settings_dict_nested)
+
+settings_json_filename = miniGAP_parent_directory + "code/user_settings.json"
+with open(settings_json_filename, encoding = 'utf-8') as settings_file_object:
+    user_JSON_settings_dict_nested = json.load(settings_file_object)
+user_JSON_settings_dict = flatten_dict(user_JSON_settings_dict_nested)
 
 
 # In[4]:
@@ -214,7 +228,8 @@ if not in_notebook:
     parser.add_argument('-mts', '--md_time_step',  type=float, help="If performing molecular dynamics, specify time step (fs) of MD")
     parser.add_argument('-mds', '--md_seed',  type=int, help="If performing molecular dynamics, change this seed to get different trajectories")
     parser.add_argument('-mec', '--md_energy_calculator',  choices = ["EMT", "LJ", "Morse"], help = "If performing molecular dynamics, specify ASE energy/force calculator")
-    parser.add_argument('-n', '--n_structs',  type=int, help="Specify # of md generated structures or # of structures to use from input file")
+    parser.add_argument('-n', '--n_total',  type=int, help="Specify # of md generated structures or # of structures to use from input file")
+    parser.add_argument('-ns', '--n_sparse',  type=int, help="Specify # of characteristic sparse point to use")
 
     # arguments specific to soap
     parser.add_argument('--rcut',  type=float, help= "Choice of SOAP cut off radius")
@@ -238,14 +253,16 @@ if not in_notebook:
 
 # This cell creates a namedtuple variable, 's', which stores all settings. For details on how to use a namedtuple, see next cell.
 # If this is run as a script then, prior to creating s, we check if there are commandline arguments.
-# Any commandline argument overwrites the default argument from the JSON settings file in the dictionary 'settings_dict'
-# The settings from the JSON file are used whenever no commandline argument exists.
+# Settings from the user_settings.JSON overwrite settings from default_settings.JSON and are stored in the dictionary 'settings_dict'
+# Any commandline argument overwrites any argument from a JSON settings file
 
-settings_dict = JSON_settings_dict.copy()
+settings_dict = default_JSON_settings_dict.copy()
+settings_dict.update(user_JSON_settings_dict)
 # Synchronize the JSON and commandline settings
 if not in_notebook:
     for setting_name in settings_dict.keys():
         if setting_name in cmdline_args_dict.keys():
+            # I forget why the '!= None' logic is necessary
             if cmdline_args_dict[setting_name] != None:
                 settings_dict[setting_name] = cmdline_args_dict[setting_name]
     
@@ -294,7 +311,7 @@ if demonstrate_named_tuple:
 # For more details see docs.python.org/3/library/collections.html#collections.namedtuple
 
 
-# In[ ]:
+# In[7]:
 
 
 # Print banner in script unless supressed
@@ -305,7 +322,7 @@ if not (in_notebook or s.suppress_banner):
 
 # ## Output files
 
-# In[7]:
+# In[8]:
 
 
 # This cell allows for saving results
@@ -348,7 +365,7 @@ else:
 
 # ## Initialization Tasks (continued)
 
-# In[8]:
+# In[9]:
 
 
 # This cell handles initialization tasks which could not be completed previously.
@@ -370,7 +387,7 @@ if s.verbose:
     
 
 
-# In[9]:
+# In[10]:
 
 
 # This cell compiles the structure dataset to be used by miniGAP
@@ -398,13 +415,8 @@ StructureList, TimeCompileStructures = TickTock(CompileStructureList, s, in_note
 if s.print_timings:
     print("Compiling structures into list took {:.2f} seconds".format(TimeCompileStructures))
 
-ns_atoms = np.array([len(struct) for struct in StructureList])
-ns_atoms_unique = np.unique(ns_atoms)
-# assert len(ns_atoms) == 1
-n_atoms = ns_atoms[0]
 
-
-# In[10]:
+# In[11]:
 
 
 # You will see the TickTock function used throughout this notebook
@@ -439,7 +451,13 @@ if see_example_of_TickTock_usage:
         
 
 
-# In[11]:
+# In[ ]:
+
+
+
+
+
+# In[12]:
 
 
 # Set convert flag to True and run this cell to convert your file to a database right now from this notebook
@@ -456,7 +474,7 @@ if convert_to_db_here_and_now and in_notebook:
     # !python ../code/convert_to_db.py -efb overwrite $s.structure_file
 
 
-# In[12]:
+# In[13]:
 
 
 # Set this flag to True if you want to visualize your structure within this jupyter notebook (no pop-up window)
@@ -467,7 +485,7 @@ visualize_structure_in_notebook = False
 # Having to use (s.save_dataset_animation & s.make_output_files) is tedious
 # Perhaps I can make s.make_output_files overwrite s.save_dataset_animation upon import
 if visualize_structure_in_notebook or (s.save_dataset_animation & s.make_output_files):
-    StructureDatasetAnimation, TimeVisualize = TickTock(create_miniGAP_visualization, StructureList, s, calculation_results_directory)
+    StructureDatasetAnimation, TimeVisualize = TickTock(CreateMiniGAPVisualization, StructureList, s, calculation_results_directory)
     if visualize_structure_in_notebook and in_notebook:
         display(StructureDatasetAnimation)
     del StructureDatasetAnimation
@@ -479,19 +497,18 @@ if visualize_structure_in_notebook or (s.save_dataset_animation & s.make_output_
         print("Created animation of structures in {:.2f} seconds ".format(TimeVisualize))
 
 
-# In[13]:
+# In[14]:
 
 
 # This cell 
 
-[EnergyList, ForceList, PosList], TimeGather = TickTock(GatherStructureInfo, StructureList, gather_forces = s.use_forces, use_self_energies=s.use_self_energies, 
-                                                     alt_energy_keyword = s.alt_energy_keyword)
+[EnergyList, ForceList, PosList, NAtList], TimeGather = TickTock(GatherStructureInfo, StructureList, gather_settings = s)
 if s.print_timings:
     gather_forces_message= ", force" if s.use_forces else ""
     print("Gathered energy{} and structure info in {:.2f} seconds".format(gather_forces_message, TimeGather))
 
 
-# In[14]:
+# In[15]:
 
 
 # This cell completes the timing started in the first cell if this code is executed from a script
@@ -502,7 +519,7 @@ if s.print_timings and not in_notebook:
     print("Completed the initial setup of miniGAP (including compiling structural data) in {:.2f} seconds".format(TimeStartUp))
 
 
-# In[15]:
+# In[16]:
 
 
 [SoapDerivativeList, SoapList], TimeSoap = TickTock(GenerateDescriptorsAndDerivatives, StructureList, s.nmax, s.lmax, s.rcut, s.smear, s.attach_SOAP_center, s.is_periodic, s.use_forces)
@@ -513,7 +530,7 @@ elif s.verbose:
     print("Generated SOAP descriptors{}.".format(calculate_derivatives_message))
 
 
-# In[16]:
+# In[17]:
 
 
 out_data, TimePrepare = TickTock(PrepareDataForTraining, 
@@ -522,22 +539,20 @@ out_data, TimePrepare = TickTock(PrepareDataForTraining,
                                 en_list = EnergyList,
                                 frc_list = ForceList ,
                                 pos_list = PosList, 
-                                split_seed = s.split_seed, 
-                                prepare_forces = s.use_forces, 
-                                train_fract = s.train_fraction,
-                                scale_soaps = s.scale_soaps
+                                nat_list = NAtList,
+                                prep_settings = s
                                 )
 
 if s.print_timings:
     print("Reformatted data to build model in {:.2f} seconds.".format(TimePrepare))
 
 if not s.use_forces:
-    train_sps_full, test_sps_full, train_ens, test_ens, train_indices, test_indices, soap_scaler, ens_scaler, ens_var = out_data
+    train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var = out_data
 else:
-    train_sps_full, test_sps_full, train_ens, test_ens, train_indices, test_indices, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var = out_data 
+    train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var = out_data 
 
 
-# In[17]:
+# In[18]:
 
 
 n_samples_full, n_features_full = train_sps_full.shape
@@ -564,7 +579,7 @@ else:
 # 2. Custom loss function vs optimizer.minimize
 # 3. Set certain variable untrainable
 
-# In[18]:
+# In[19]:
 
 
 # Initialize kernels and model hyperparameters
@@ -586,7 +601,7 @@ kernel = pick_kernel(s.kernel_type, amplitude=1, verbose=s.verbose, degree=degre
 # Now validation set acts as temporary est set
 # train_test_split and tensorflow tensors don't get along so I temporarily convert them back to numpy arrays
 
-train_indices_j, valid_indices_j  = train_test_split(np.arange(len(train_sps)), random_state = s.valid_split_seed, test_size=(1-s.valid_fract))
+train_indices_j, valid_indices_j  = train_test_split(np.arange(len(train_sps)), random_state = s.valid_split_seed, test_size=(1-s.valid_fraction))
 
 train_sps_j, valid_sps_j = train_sps[train_indices_j], train_sps[valid_indices_j]
 train_ens_j, valid_ens_j = train_ens[train_indices_j], train_ens[valid_indices_j]
@@ -594,6 +609,7 @@ train_ens_j, valid_ens_j = train_ens[train_indices_j], train_ens[valid_indices_j
 if s.use_forces: 
     train_dsp_dx_j, valid_dsp_dx_j = train_dsp_dx[train_indices_j], train_dsp_dx[valid_indices_j]
     train_frcs_j, valid_frcs_j = train_frcs[train_indices_j], train_frcs[valid_indices_j]
+    train_nats_j, valid_nats_j = train_nats[train_indices_j], train_nats[valid_indices_j]
 
 # Convert to tensorflow constant tensors
 # train_sps_j = tf.constant(train_sps_j, dtype=s.dtype)
@@ -754,12 +770,15 @@ elif s.my_priority == "consistency":
                     if s.use_forces:
                         predict_d_ens_j_i = tape_sps.gradient(predict_ens_j_i, valid_sps_j)
                         # In the following line I needed to include '* n_atoms' after breaking energies into local energies
-                        # The reason is that I am effectively breaking the connection between E and F when doing that
+                        # The reason is that I am effectively breaking the connection between E and F when breaking energies into local energies
                         # F = -dE/dx =/= -dE_local/dx where E_local = E/n_atoms - E_free
                         # When I split energies into local energies I initially calculated -dE_local/dx which is -dE/dx / n_atoms
-                        # This fix is prone to breaking the code and is not robust to systems with different structure size
-                        # Need to improve this with a better fix
-                        predict_frcs_j_i = -1*np.einsum('ijk,ik->ij', valid_dsp_dx_j, predict_d_ens_j_i) * n_atoms
+                        # We can't just rescale the validation_frcs beforehand, by dividing them by n_atoms, because this 
+                        # rescales their weight in the mse by n_atoms which
+                        # would lead to forces from smaller structures being overweighted in importances to mse
+#                         print(valid_dsp_dx_j.shape, predict_d_ens_j_i.shape, valid_nats_j.shape)
+#                         print(valid_nats_j)
+                        predict_frcs_j_i = -1*np.einsum('ijk,ik->ij', valid_dsp_dx_j, predict_d_ens_j_i)  * valid_nats_j
                         mse_j_i = mse_2factor_tf(predict_ens_j_i, valid_ens_j, 1/ens_var,
                                                 predict_frcs_j_i, valid_frcs_j, 1/frcs_var)
                         mse_ens_j_i = mse_tf(predict_ens_j_i, valid_ens_j)
@@ -794,7 +813,13 @@ else:
 TimeBeforeWeights = time.time()
 
 
-# In[19]:
+# In[ ]:
+
+
+
+
+
+# In[20]:
 
 
 # I am currently (11/30) converting the hyperparameter learning in this cell into a function
@@ -819,7 +844,7 @@ TimeBeforeWeights = time.time()
 #     # Now validation set acts as temporary est set
 #     # train_test_split and tensorflow tensors don't get along so I temporarily convert them back to numpy arrays
 
-#     train_indices_j, valid_indices_j  = train_test_split(np.arange(len(train_sps)), random_state = settings.valid_split_seed, test_size=(1-settings.valid_fract))
+#     train_indices_j, valid_indices_j  = train_test_split(np.arange(len(train_sps)), random_state = settings.valid_split_seed, test_size=(1-settings.valid_fraction))
 
 #     train_sps_j, valid_sps_j = train_sps[train_indices_j], train_sps[valid_indices_j]
 #     train_ens_j, valid_ens_j = train_ens[train_indices_j], train_ens[valid_indices_j]
@@ -1029,7 +1054,7 @@ TimeBeforeWeights = time.time()
 # train_hyperparams(train_sps, train_ens, sparse_train_sps, kernel=kernel, settings=s)
 
 
-# In[20]:
+# In[21]:
 
 
 
@@ -1084,24 +1109,57 @@ with tf.GradientTape(watch_accessed_variables=False) as tape_sps:
             predict_ens = tf.reshape( predict_energies_from_weights_tf(trained_weights, sparse_train_sps, test_sps, degree), [-1,1])
         else:
             predict_ens = tf.reshape( predict_energies_from_weights_tf(trained_weights,        train_sps, test_sps, degree), [-1,1])
-
-test_ens_rescaled = ens_scaler.inverse_transform(test_ens)
-predict_ens_rescaled = ens_scaler.inverse_transform(predict_ens)
-if s.prediction_calculation == "predict_f":
-    predict_ens_var_rescaled =  np.array(predict_ens_var * ens_scaler.scale_ **2)
     
 if s.use_forces:
     print("Predicting final forces")    
     predict_d_ens = tape_sps.gradient(predict_ens, test_sps)
-    predict_frcs = -1*np.einsum('ijk,ik->ij', test_dsp_dx, predict_d_ens) * n_atoms
-
-    test_frcs_rescaled = test_frcs * ens_scaler.scale_
-    predict_frcs_rescaled = predict_frcs * ens_scaler.scale_
+    predict_frcs = -1*np.einsum('ijk,ik->ij', test_dsp_dx, predict_d_ens) * test_nats
 
 TimeAfterPrediction = time.time()
 
 
-# In[21]:
+# In[22]:
+
+
+# rescale
+test_ens_rescaled = ens_scaler.inverse_transform(test_ens).flatten()
+predict_ens_rescaled = ens_scaler.inverse_transform(predict_ens).flatten()
+# convert to final units if necessary
+test_ens_rescaled = convert_energy(test_ens_rescaled, "eV", s.output_energy_units)
+predict_ens_rescaled = convert_energy(predict_ens_rescaled, "eV", s.output_energy_units)
+
+if s.prediction_calculation == "predict_f":
+    # rescale
+    predict_ens_var_rescaled =  np.array(predict_ens_var * ens_scaler.scale_ **2).flatten()
+    # convert to final units if necessary
+    # Apply the conversion twice to account because the energy variance has units of energy squared
+    predict_ens_var_rescaled = convert_energy(predict_ens_var_rescaled, "eV", s.output_energy_units)
+    predict_ens_var_rescaled = convert_energy(predict_ens_var_rescaled, "eV", s.output_energy_units)
+    
+if s.use_forces:
+    # rescale
+    test_frcs_rescaled = test_frcs * ens_scaler.scale_
+    predict_frcs_rescaled = predict_frcs * ens_scaler.scale_
+    # convert to final units if necessary
+    test_frcs_rescaled = convert_force(test_frcs_rescaled, "eV/ang", s.output_force_units)
+    predict_frcs_rescaled = convert_force(predict_frcs_rescaled, "eV/ang", s.output_force_units)
+
+
+# In[23]:
+
+
+# make a regroup function
+# test_ens_regrouped = test_ens_rescaled.reshape(-1, len(StructureList[0]))
+# predict_ens_regrouped = predict_ens_rescaled.reshape(-1, len(StructureList[0]))
+# self_energies_regrouped = [[self_energy(atom.symbol, use_librascal_values=s.use_self_energies) for atom in StructureList[i]] for i in test_indices]
+# test_global_ens = np.sum(test_ens_regrouped + self_energies_regrouped, axis=1)
+# predict_global_ens = np.sum(predict_ens_regrouped + self_energies_regrouped, axis=1)
+test_global_ens = (test_struct_bools @ test_ens_rescaled ).flatten()
+predict_global_ens = ( test_struct_bools @ predict_ens_rescaled ).flatten()
+test_global_nats = NAtList[test_indices]
+
+
+# In[24]:
 
 
 TrainingCellNonEpochsTraining = TimeBeforeEpoch0 - TimeBeforePreEpoch + TimeAfterTraining - TimeBeforeWeights 
@@ -1118,7 +1176,7 @@ if s.print_timings:
     print("{:50s}: {:.3f}".format("Prediction time", PredictionTime) )
 
 
-# In[22]:
+# In[25]:
 
 
 if True:
@@ -1127,13 +1185,13 @@ if True:
     if 'hyperparam_history_by_n' not in locals():
         hyperparam_history_by_n = {}
 
-    hyperparam_history_by_n[s.n_structs] = hyperparam_history
-    mse_history_by_n[s.n_structs] = mse_history
+    hyperparam_history_by_n[s.n_total] = hyperparam_history
+    mse_history_by_n[s.n_total] = mse_history
 
-    print("Stored the hyperparameters and mse values for plotting under n={}".format(s.n_structs) )
+    print("Stored the hyperparameters and mse values for plotting under n={}".format(s.n_total) )
 
 
-# In[23]:
+# In[26]:
 
 
 plot_hyperparam_training = (in_notebook or s.n_epochs > 0)
@@ -1204,81 +1262,43 @@ if plot_hyperparam_training:
         ax11.legend()
         ax11.ticklabel_format(useOffset=False)
 
-        #fig.suptitle("{}".format(s.n_structs))
+        #fig.suptitle("{}".format(s.n_total))
         
         if s.make_output_files:
             hyperparameter_results_filename = "hyperparameter_training"
             plt.savefig(calculation_results_directory + hyperparameter_results_filename)    
 
 
-# In[24]:
+# In[27]:
 
 
-# make a regroup function
-test_ens_regrouped = test_ens_rescaled.reshape(-1, len(StructureList[0]))
-predict_ens_regrouped = predict_ens_rescaled.reshape(-1, len(StructureList[0]))
-self_energies_regrouped = [[self_energy(atom.symbol, use_librascal_values=s.use_self_energies) for atom in StructureList[i]] for i in test_indices]
-test_global_ens = np.sum(test_ens_regrouped + self_energies_regrouped, axis=1)
-predict_global_ens = np.sum(predict_ens_regrouped + self_energies_regrouped, axis=1)
+# Print outputs
 
 if s.prediction_calculation == "predict_f":
-    predict_ens_var_regrouped = predict_ens_var_rescaled.reshape(-1, len(StructureList[0]))
-    predict_global_ens_var = np.sum(predict_ens_var_regrouped, axis=1)
+    predict_global_ens_var = (test_struct_bools @ predict_ens_var_rescaled ).flatten()
     predict_global_ens_std = predict_global_ens_var ** 0.5 
     input_std = (gpr_model.likelihood.variance.numpy() * ens_scaler.scale_[0] **2) ** 0.5
     print("Our observation noise variance implies our reference error is +/- {:.3} /atom".format( input_std) )
 else:
     predict_global_ens_std = None
-plot_energy_errors(model_description = "gpflow model",
-            use_local=True,
-            global_ens=test_global_ens,   predicted_global_ens= predict_global_ens,
-            local_ens= test_ens_rescaled, predicted_local_ens = predict_ens_rescaled,
-            color="mediumseagreen", predicted_stdev = None, n_atoms=n_atoms, in_notebook=in_notebook )
+
+# Creates plots and tables
+AnalyzeEnergyResults(test_global_ens, predict_global_ens, s,
+                true_local_ens = test_ens_rescaled, predicted_local_ens = predict_ens_rescaled,
+                predicted_stdev=predict_global_ens_std, n_atoms = test_global_nats, in_notebook=in_notebook, output_directory=calculation_results_directory)
 
 
-if s.make_output_files:
-    energy_errors_title = "energy_predictions"#"energy_results" + today_string + settings_string
-    energy_errors_plot_filename = calculation_results_directory + energy_errors_title + ".png"
-    # check if existing, add number to end if it is
-    energy_errors_plot_filename = find_unique_filename(energy_errors_plot_filename)
-    plt.savefig(energy_errors_plot_filename)    
+# In[28]:
 
 
-# In[25]:
-
+# Creates plots and tables
 
 if s.use_forces:
-    predict_frcs_rescaled
-
-    fig, axs = plt.subplots(ncols=3, figsize=(20,5))
-    components = ["x", "y", "z"]
-    force_max = max(np.max(test_frcs_rescaled), np.max(predict_frcs_rescaled)) + np.std(test_frcs_rescaled)/2
-    force_min = min(np.min(test_frcs_rescaled), np.min(predict_frcs_rescaled)) - np.std(test_frcs_rescaled)/2
-
-    for i in range(3):
-        axs[i].plot([force_min, force_max], [force_min, force_max], "-", c="k")
-        axs[i].plot(test_frcs_rescaled[:,i], test_frcs_rescaled[:,i], "o", c="k", ms=4)
-        axs[i].plot(test_frcs_rescaled[:,i], predict_frcs_rescaled[:,i], "o", label="custom", c="mediumseagreen", ms=5, alpha=.5)
-        #axs[i].legend()
-        axs[i].set_xlim(force_min, force_max); axs[i].set_ylim(force_min, force_max)
-
-        try:
-            m, b = np.polyfit(test_frcs_rescaled[:,i], predict_frcs_rescaled[:,i], 1)
-            r2 = np.corrcoef(test_frcs_rescaled[:,i], predict_frcs_rescaled[:,i])[0,1]
-            print("Least-squares regresion for F{}({}) produces the line line m {}+b with m = {:.5f} and b = {:.5f} which has r2 = {:.5f} ".format(components[i],components[i],components[i],m,b, r2))
-        except:
-            pass    
-
-    #plt.savefig("../media/librascal_database_local_energy_force_learning")
-    if s.make_output_files:
-        force_errors_title = "force_predictions"#"energy_results" + today_string + settings_string
-        force_errors_plot_filename = calculation_results_directory + force_errors_title + ".png"
-        # check if existing, add number to end if it is
-        force_errors_plot_filename = find_unique_filename(force_errors_plot_filename)
-        plt.savefig(force_errors_plot_filename)    
+    AnalyzeForceResults(test_frcs_rescaled, predict_frcs_rescaled, s, predicted_force_stdevs=None, in_notebook=in_notebook,
+                        output_directory=calculation_results_directory)
 
 
-# In[26]:
+# In[29]:
 
 
 # This closes the log file. Probably not necessary since it is at the end of the script, but it's best practice.
