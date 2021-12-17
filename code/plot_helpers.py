@@ -28,15 +28,18 @@ def suggest_outlier_cropping_for_true_vs_predicted_plot(true, predicted, buffer 
                                                neighbor_factor=0.2, check_boundary_neighbors=True, range_factor=1.5, percentile_range=50, verbose=False):
     # Ignore large errors when picking our range
     # First determine which errors are outliers
-    errors = (true - predicted).flatten()
+    errors = (predicted - true).flatten()
     # I use np.unique so that a large multiplicity doesn't dominate when, for instance, 
     # the problem is not fully 3D so some errors are identically 0
-    errors = np.unique(errors)
+    # I had to remove this because it caused an indices mismatch. Maybe I can use np.unique within separate_outliers?
+    # errors = np.unique(errors)
+    
     # Modified IQR method by default
-    _, _, nonoutlier_indices, _ = separate_outliers(errors, center_mode=center_mode, range_mode=range_mode, 
+    _, outliers, nonoutlier_indices, outlier_indices = separate_outliers(errors, center_mode=center_mode, range_mode=range_mode, 
                                                     neighbor_factor=neighbor_factor, check_boundary_neighbors=check_boundary_neighbors,
                                                     range_factor=range_factor, percentile_range=percentile_range, verbose=verbose, data_label="error" )
     nonoutlier_predictions = predicted.flatten()[nonoutlier_indices]
+
     # Buffer = 0 by default to make cropping more effective
     cropped_range = get_data_bounds(nonoutlier_predictions, buffer=0)
     # I don't think we ever want to crop out any of the true value range
@@ -52,14 +55,14 @@ def plot_predicted_vs_true(predicted, true, ax, variable_label = "", units = "",
         units = " ({})".format(units)
     ax.set_xlabel("True {}{}".format(variable_label, units) )
     ax.set_ylabel("Predicted {}".format(variable_label, units) )
-    ax.plot(sorted(true), sorted(true), "-", c="k", lw=0.5)
+    ax.plot(sorted(true), sorted(true), "-", c="k", lw=1)
     ax.grid()
     ax.set_axisbelow(True)
     if stderr is not None:
-        ax.errorbar(true, predicted, yerr=stderr, fmt="o", c=color, ms=ms, label= "mean -/+ std")
+        ax.errorbar(true, predicted, yerr=stderr, fmt="o", c=color, ms=ms, mec='k', label= "mean -/+ std")
         ax.legend()
     else:
-        ax.plot(true, predicted, "o", c=color, ms=ms)
+        ax.plot(true, predicted, "o", c=color, ms=ms, mec='k')
     if x_range is None:
         x_range = get_data_bounds(true, buffer=0.05)
     if y_range is None:

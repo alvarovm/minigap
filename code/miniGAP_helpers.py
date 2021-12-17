@@ -153,11 +153,47 @@ def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directo
 
 def self_energy(element, use_librascal_values=False, dtype=np.float64):
     if use_librascal_values:
-        self_contributions = {
-            "H": -6.492647589968434,
-            "C": -38.054950840332474,
-            "O": -83.97955098636527,
+        # distorted propenol self energies from librascal notebook
+#         self_contributions = {
+#             "H": -6.492647589968434,
+#             "C": -38.054950840332474,
+#             "O": -83.97955098636527,
+#         }
+        # Calculated with B3LYP+D3 on CRYSTAL17
+        default_isolated_energies = {
+            "H":  -0.43796573720365,
+            "Li": -7.4538249414114,
+            "Be": -14.644518869964,
+            "B": -24.512608074927,
+            "C": -37.768216780161,
+            "N": -54.572189501408,
+            "O": -75.003393876879,
+            "F": -99.672000678934,
+            "Na": -162.20736395632,
+            "Mg": -199.4784909209,
+            "Al": -241.9640517253,
+            "Si": -289.26042225551,
+            "P": -341.20691893397,
+            "S": -398.04415675952,
+            "Cl": -460.04770109924,
+            "K": -599.77830261799,
+            "Ca": -677.27165785863,
+            "Sc": -760.34151748052,
+            "Ti": -848.8244251979,
+            "V": -943.67762714996,
+            "Cr": -1044.1147378511,
+            "Mn": -1150.8928446101,
+            "Co": -1382.3371803164,
+            "Ni": -1508.0647901075,
+            "Cu": -1640.1713647787,
+            "Zn": -1779.2571044599,
+            "Ga": -1924.5685189651,
+            "Ge": -2076.7379664988,
+            "As": -2235.7034565607,
+            "Tc": -4205.5805934383
         }
+        self_contributions=default_isolated_energies
+        
         return self_contributions[element]
     else:
         return np.array(0, dtype=dtype)    
@@ -175,6 +211,7 @@ def GatherStructureInfo(struct_list, gather_settings ):
     
 
     en_list = []
+    en_shift_list = []
     frc_list = []
     for struct in struct_list:
         # get average atomic energy for each atom
@@ -187,8 +224,10 @@ def GatherStructureInfo(struct_list, gather_settings ):
         # If you are using an input file which has structural information not in angstroms, forces learned by miniGAP will not be accurate
         en_list_i = convert_energy(en_list_i, gather_settings.input_energy_units, "eV") 
         # Subtract energy of free atoms if specified by user
-        en_list_i -= [ self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct]
+        self_energies = [ self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct]
+        en_list_i -= self_energies
         en_list.append(en_list_i)
+        en_shift_list.append(sum(self_energies))
         
         if gather_forces:
             frc_list_i = struct.get_forces()
@@ -198,7 +237,7 @@ def GatherStructureInfo(struct_list, gather_settings ):
             frc_list_i = no_forces_string
         frc_list.append(frc_list_i)  
     
-    return en_list, frc_list, pos_list, n_atom_list
+    return en_list, frc_list, pos_list, n_atom_list, en_shift_list
 
 def GenerateDescriptorsAndDerivatives(struct_list, nmax, lmax, rcut, smear=0.3, attach=True, is_periodic=False, return_derivatives=True, get_local_descriptors = True):
     
@@ -225,7 +264,7 @@ def GenerateDescriptorsAndDerivatives(struct_list, nmax, lmax, rcut, smear=0.3, 
 
 
 
-def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, nat_list, prep_settings):
+def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, nat_list, en_shift_list, prep_settings):
     split_seed = prep_settings.split_seed
     prepare_forces = prep_settings.use_forces
     scale_soaps = prep_settings.scale_soaps
@@ -264,6 +303,8 @@ def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, na
     train_struct_bools = np.repeat(np.eye(n_train, dtype=np.float64), train_nats, axis=1)
     test_struct_bools = np.repeat(np.eye(n_test, dtype=np.float64), test_nats, axis=1)
     train_nats, test_nats = np.repeat(train_nats, train_nats).reshape((-1, 1)), np.repeat(test_nats, test_nats).reshape((-1, 1))
+    # No need to scale the isolated atomic energies, which won't be used until after the training is done
+    train_en_shfts, test_en_shfts = np.array(en_shift_list)[train_indices], np.array(en_shift_list)[test_indices]
 
     # Scale energies to have zero mean and unit variance.
     # Divide forces by the same scale factor but don't subtract the mean
@@ -307,9 +348,9 @@ def PrepareDataForTraining(sp_list, dsp_dx_list, en_list, frc_list, pos_list, na
 #         train_frcs = tf.constant(train_frcs, dtype=np.float64)
 
     if not prepare_forces:
-        return train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var
+        return train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_en_shfts, test_en_shfts, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var
     else:
-        return train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var
+        return train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_en_shfts, test_en_shfts, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var
 
 
 

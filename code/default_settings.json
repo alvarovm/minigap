@@ -49,6 +49,7 @@
         }
     },
     "calculation_type_settings": {
+        "energy_type": "binding",
         "use_forces": false,
         "dtype": "float64"
     },

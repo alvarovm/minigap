@@ -814,248 +814,7 @@ else:
 TimeBeforeWeights = time.time()
 
 
-# In[ ]:
-
-
-
-
-
 # In[20]:
-
-
-# I am currently (11/30) converting the hyperparameter learning in this cell into a function
-# Next will be the post-hyperparameter part of the learning (in the next cell)
-
-# # Initialize kernels and model hyperparameters
-
-
-
-# def train_hyperparams(train_sps, train_ens, sparse_train_sps, kernel, settings):
-#     tf.random.set_seed(settings.tf_seed)
-
-
-#     noise_init = 1e-4 #.001# 0.0005499093576274776 #1.625e-4
-#     obs_noise = tf.Variable(noise_init, dtype=settings.dtype, name="noise")
-
-
-
-
-
-#     # Split training data into training and validation sets
-#     # Now validation set acts as temporary est set
-#     # train_test_split and tensorflow tensors don't get along so I temporarily convert them back to numpy arrays
-
-#     train_indices_j, valid_indices_j  = train_test_split(np.arange(len(train_sps)), random_state = settings.valid_split_seed, test_size=(1-settings.valid_fraction))
-
-#     train_sps_j, valid_sps_j = train_sps[train_indices_j], train_sps[valid_indices_j]
-#     train_ens_j, valid_ens_j = train_ens[train_indices_j], train_ens[valid_indices_j]
-
-#     if settings.use_forces: 
-#         train_dsp_dx_j, valid_dsp_dx_j = train_dsp_dx[train_indices_j], train_dsp_dx[valid_indices_j]
-#         train_frcs_j, valid_frcs_j = train_frcs[train_indices_j], train_frcs[valid_indices_j]
-
-#     # Convert to tensorflow constant tensors
-#     train_sps_j = tf.constant(train_sps_j, dtype=settings.dtype)
-#     train_ens_j = tf.constant(train_ens_j, dtype=settings.dtype)
-#     valid_sps_j = tf.constant(valid_sps_j, dtype=settings.dtype)
-#     valid_ens_j = tf.constant(valid_ens_j, dtype=settings.dtype)
-#     if settings.sparse_gpflow:
-#         sparse_train_sps = tf.Variable(sparse_train_sps, shape=sparse_train_spsettings.shape, dtype=settings.dtype, trainable=False)
-
-#     if settings.use_forces:
-#         train_dsp_dx_j = tf.constant(train_dsp_dx_j, dtype=settings.dtype)
-#         train_frcs_j = tf.constant(train_frcs_j, dtype=settings.dtype)    
-#         valid_dsp_dx_j = tf.constant(valid_dsp_dx_j, dtype=settings.dtype)
-#         valid_frcs_j = tf.constant(valid_frcs_j, dtype=settings.dtype)        
-
-#     test_sps = tf.constant(test_sps, dtype=settings.dtype)
-
-
-#     # Batch data if  training set is larger than batch_size_max
-#     if len(train_sps_j) < settings.batch_size_max:
-#         iterations_per_epoch = 1
-#         batch_size = len(train_sps_j)
-#         if s.verbose:
-#             print("Training using {} atoms without batching.".format(len(train_sps_j)))
-#     else:
-#         iterations_per_epoch = int(np.ceil(len(train_sps_j)/settings.batch_size_max))
-#         batch_size = int(np.ceil(len(train_sps_j)/iterations_per_epoch))
-#         if s.verbose:
-#             print("Training using {} atoms total using {} batches with {} atoms per batch.".format( len(train_sps_j), iterations_per_epoch, batch_size ))
-
-#     # training(out_data)
-
-#     TimeBeforeEpoch0 = time.time()
-
-
-#     mse_history = []    
-#     hyperparam_history = []
-
-
-
-#     # import warnings
-#     # 
-#     # from gpflow.models import VGP, GPR, SGPR, SVGP
-#     # from gpflow.optimizers import NaturalGradient
-#     # from gpflow.optimizers.natgrad import XiSqrtMeanVar
-#     # from gpflow import set_trainable
-
-
-#     if settings.my_priority == "efficiency":
-#         # I don't know what this does
-#         autotune = tf.data.experimental.AUTOTUNE
-
-
-#         batches = (
-#             tf.data.Dataset.from_tensor_slices((train_sps_j, train_ens_j))
-#             .prefetch(autotune) 
-#             .shuffle(buffer_size=len(train_sps_j), seed=settings.shuffle_seed)
-#             .repeat(count=None)
-#             .batch(batch_size)
-#         )
-
-#         batch_iterator = iter(batches)
-
-#         # I also don't know why we use this
-#         from gpflow.ci_utils import ci_niter, ci_range
-
-#         optimizer = tf.keras.optimizers.Adam(learning_rate=settings.learn_rate)
-
-#     else:
-#         batches = (
-#             tf.data.Dataset.from_tensor_slices((train_sps_j, train_ens_j)) 
-#             .shuffle(buffer_size=len(train_sps_j), seed=settings.shuffle_seed) 
-#             .repeat(count=None)
-#             .batch(batch_size)
-#         )    
-
-#         optimizer = tf.keras.optimizers.Adam(learning_rate=settings.learn_rate)
-#         #optimizer = tf.keras.optimizers.SGD(learning_rate=settings.learn_rate)
-
-
-
-#     # new code to make tf.function training work
-#     # --------------------------------------------
-#     train_sps_j_i = tf.Variable(train_sps[:batch_size], shape=(batch_size, train_sps.shape[-1]), dtype=settings.dtype, trainable=False )
-#     train_ens_j_i = tf.Variable(train_ens[:batch_size], shape=(batch_size, 1), dtype=settings.dtype, trainable=False ) 
-#     if settings.sparse_gpflow:
-#         if sparse_train_sps.shape[0] >= batch_size:
-#             print("Warning: Batch size is not greater than sparse soap size.\nThis may cause errors in the predict_f function which assumes the inducing points to be fewer than the data points.")
-#         if settings.my_priority == "efficiency":
-#             gpr_model = gpflow.models.SVGP( kernel=kernel, likelihood=gpflow.likelihoods.Gaussian(),  inducing_variable=sparse_train_sps)
-#             gpr_model.likelihood.variance.assign(obs_noise)
-#             gpflow.set_trainable(gpr_model.q_mu, False)
-#             gpflow.set_trainable(gpr_model.q_sqrt, False)
-#         else:
-#             gpr_model = gpflow.models.SGPR(data=(train_sps_j_i, train_ens_j_i), kernel=kernel, noise_variance=obs_noise, inducing_variable=sparse_train_sps)
-#     else:
-#         if settings.my_priority == "efficiency":
-#             # it seems I cannot use  noise_variance=obs_noise for this which makes it not GAP...
-#             gpr_model = gpflow.models.VGP( data=(train_sps_j_i, train_ens_j_i), kernel=kernel, likelihood=gpflow.likelihoods.Gaussian())
-#         else:
-#             gpr_model = gpflow.models.GPR( data=(train_sps_j_i, train_ens_j_i), kernel=kernel, noise_variance=obs_noise)
-#     # --------------------------------------------
-
-
-#     print_frequency = max(settings.min_print_frequency, int(settings.n_epochs/10))
-
-#     if settings.my_priority == "efficiency":
-#         hyperparam_history.append([(0, np.exp(var.numpy() )) for var in gpr_model.trainable_variables])  
-#         gpr_objective = gpr_model.training_loss_closure(batch_iterator,  compile=True)
-#         for j in range(ci_niter(settings.n_epochs)):
-#             if not j % print_frequency:
-#                 print("Epoch {}".format(j))
-#             optimizer.minimize(gpr_objective, var_list=gpr_model.trainable_variables)
-#             mse_history.append((j+1, gpr_model.elbo(data=(train_sps, train_ens))))
-#             hyperparam_history.append([(j+1, np.exp(var.numpy()) ) for var in gpr_model.trainable_variables]) 
-#         #optimizer.minimize(gpr_model.training_loss, gpr_model.trainable_variables, options=dict(maxiter=settings.n_epochs))
-
-#     elif settings.my_priority == "consistency":
-
-#         hyperparam_history.append([(0, var.numpy()) for var in gpr_model.trainable_parameters])  
-#         for j in range(settings.n_epochs):
-#             if not j % print_frequency:
-#                 print("Epoch {}".format(j))
-#                 #print(" ".join(["{} = {:.2e} ".format(var.name, np.exp(var.numpy())) for var in trainable_variables]))
-
-#             mse_ens_j = 0
-#             for i, (train_sps_j_i, train_ens_j_i) in enumerate(islice(batches, iterations_per_epoch)):
-#                 if not settings.use_forces: #and not settings.sparse_gpflow :
-#                     gpr_model.data[0].assign(train_sps_j_i)
-#                     gpr_model.data[1].assign(train_ens_j_i)        
-#                     mse_ens_j_i = train_hyperparams_without_forces_tf(gpr_model, valid_sps_j, valid_ens_j)
-#                     print("valid_ens[:3] = {}".format( valid_ens_j[:3].numpy().flatten()) )
-#     #                 print(mse_ens_j_i.numpy(), valid_ens_j[:3].numpy().flatten(), train_ens_j_i[:3].numpy().flatten()  )
-
-
-#                 else:
-#                     print("Using older approach (not converted to tf.function yet)")
-#                     with tf.GradientTape() as tape:
-#                         with tf.GradientTape(watch_accessed_variables=False) as tape_sps:
-#                             tape_sps.watch(valid_sps_j)
-#                             if settings.sparse_gpflow:
-#                                 gpr_model = gpflow.models.SGPR(data=(train_sps_j_i, train_ens_j_i), kernel=kernel, inducing_variable=sparse_train_sps)
-#         #                         gpflow.set_trainable(gpr_model.inducing_variable, False)
-#                                 if i < 3:
-#                                     print_summary(gpr_model)            
-#                             else:
-#                                 gpr_model.data[0].assign(train_sps_j_i)
-#                                 gpr_model.data[1].assign(train_ens_j_i)
-#                                 #gpr_model = gpflow.models.GPR(data=(train_sps_j_i, train_ens_j_i), kernel=kernel)
-#                             #gpr_model.likelihood.variance.assign(obs_noise)                
-#                             predict_ens_j_i = gpr_model.predict_f(valid_sps_j)[0]
-
-#             #                 gpr_model = gpflow.models.GPR(data=(sps_j_i, train_ens_j_i), kernel=kernel_gpf)
-#             #                 gpr_model.likelihood.variance.assign(obs_noise_gpf)
-#             #                 predict_ens_j_i_gpf = gpr_model.predict_f(valid_sps_j)
-
-#                         if settings.use_forces:
-#                             predict_d_ens_j_i = tape_sps.gradient(predict_ens_j_i, valid_sps_j)
-#                             # In the following line I needed to include '* n_atoms' after breaking energies into local energies
-#                             # The reason is that I am effectively breaking the connection between E and F when doing that
-#                             # F = -dE/dx =/= -dE_local/dx where E_local = E/n_atoms - E_free
-#                             # When I split energies into local energies I initially calculated -dE_local/dx which is -dE/dx / n_atoms
-#                             # This fix is prone to breaking the code and is not robust to systems with different structure size
-#                             # Need to improve this with a better fix
-#                             predict_frcs_j_i = -1*np.einsum('ijk,ik->ij', valid_dsp_dx_j, predict_d_ens_j_i) * n_atoms
-#                             mse_j_i = mse_2factor_tf(predict_ens_j_i, valid_ens_j, 1/ens_var,
-#                                                     predict_frcs_j_i, valid_frcs_j, 1/frcs_var)
-#                             mse_ens_j_i = mse_tf(predict_ens_j_i, valid_ens_j)
-#                         else:
-#                             mse_j_i = mse_tf(predict_ens_j_i, valid_ens_j)
-#                             mse_ens_j_i = mse_j_i
-
-
-#             #         grads = tape.gradient(mse_j_i, trainable_variables)
-#             #         optimizer.apply_gradients(zip(grads, trainable_variables))
-#                     grads = tape.gradient(mse_j_i, gpr_model.trainable_variables)
-#                     # print(gpr_model.trainable_variables[0])#grads[0])
-#                     optimizer.apply_gradients(zip(grads, gpr_model.trainable_variables))
-#                     if i < 3:
-#                         print_summary(gpr_model)
-
-#                     if not gpr_model.data[0][0,0].numpy() == train_sps_j_i[0,0].numpy() :
-#                         print("ERRORERRORERRORERRORERRORERRORERROR")
-
-#                 print("Adding mse_ens_j_i to mse_ens_j: {} + {} = {} ".format(mse_ens_j_i.numpy(), mse_ens_j , mse_ens_j_i.numpy() + mse_ens_j  ))
-#                 mse_ens_j += mse_ens_j_i
-
-#             mse_ens_j /= iterations_per_epoch
-#             print("Epoch {},  mse = {}".format(j, mse_ens_j))
-#             mse_history.append((j+1, mse_ens_j))
-#             hyperparam_history.append([(j+1, var.numpy()) for var in gpr_model.trainable_parameters])    
-#     else:
-#         print("{} is not a reconized value for my_priority.\n Training did not occur.".format(settings.my_priority))
-    
-#     return gpr_model
-
-
-
-# TimeBeforeWeights = time.time()
-# train_hyperparams(train_sps, train_ens, sparse_train_sps, kernel=kernel, settings=s)
-
-
-# In[21]:
 
 
 
@@ -1063,7 +822,7 @@ TimeBeforeWeights = time.time()
 print("Calculating weights")
 
 if s.my_priority == "efficiency" and s.sparse_gpflow == True:
-    gpr_model =gpr_model
+    gpr_model = gpr_model
 elif s.my_priority == "consistency":
     if s.sparse_gpflow:
         gpr_model = gpflow.models.SGPR(data=(train_sps, train_ens), kernel=kernel, noise_variance = gpr_model.likelihood.variance, inducing_variable  = sparse_train_sps)
@@ -1119,7 +878,7 @@ if s.use_forces:
 TimeAfterPrediction = time.time()
 
 
-# In[22]:
+# In[21]:
 
 
 # rescale
@@ -1137,11 +896,8 @@ if s.prediction_calculation == "predict_f":
     predict_ens_var_rescaled =  np.array(predict_ens_var * ens_scaler.scale_ **2).flatten()
     # convert to final units if necessary
     # Apply the conversion twice to account because the energy variance has units of energy squared
-    print(predict_ens_var_rescaled[0])
     predict_ens_var_rescaled = convert_energy(predict_ens_var_rescaled, "eV", s.output_energy_units)
-    print(predict_ens_var_rescaled[0])
     predict_ens_var_rescaled = convert_energy(predict_ens_var_rescaled, "eV", s.output_energy_units)
-    print(np.mean(np.abs(predict_ens_var_rescaled)))
     
 if s.use_forces:
     # rescale
@@ -1152,7 +908,7 @@ if s.use_forces:
     predict_frcs_rescaled = convert_force(predict_frcs_rescaled, "eV/ang", s.output_force_units)
 
 
-# In[23]:
+# In[22]:
 
 
 # make a regroup function
@@ -1166,7 +922,7 @@ predict_global_ens = ( test_struct_bools @ predict_ens_rescaled ).flatten() + te
 test_global_nats = NAtList[test_indices]
 
 
-# In[24]:
+# In[23]:
 
 
 TrainingCellNonEpochsTraining = TimeBeforeEpoch0 - TimeBeforePreEpoch + TimeAfterTraining - TimeBeforeWeights 
@@ -1183,7 +939,7 @@ if s.print_timings:
     print("{:50s}: {:.3f}".format("Prediction time", PredictionTime) )
 
 
-# In[25]:
+# In[24]:
 
 
 if True:
@@ -1198,7 +954,7 @@ if True:
     print("Stored the hyperparameters and mse values for plotting under n={}".format(s.n_total) )
 
 
-# In[26]:
+# In[25]:
 
 
 plot_hyperparam_training = (in_notebook or s.n_epochs > 0)
@@ -1276,19 +1032,14 @@ if plot_hyperparam_training:
             plt.savefig(calculation_results_directory + hyperparameter_results_filename)    
 
 
-# In[27]:
+# In[26]:
 
 
 # Print outputs
-print(predict_ens_var_rescaled.shape)
 if s.prediction_calculation == "predict_f":
     predict_global_ens_var = (test_struct_bools @ predict_ens_var_rescaled ).flatten()
-    print(np.mean(np.abs(predict_global_ens_var)))
     predict_global_ens_std = predict_global_ens_var ** 0.5 
-    print(np.mean(np.abs(predict_global_ens_std)))
-
     input_std = (gpr_model.likelihood.variance.numpy() * ens_scaler.scale_[0] **2) ** 0.5
-    print(np.mean(np.abs(input_std)))
     print("Our observation noise variance implies our reference error is +/- {:.3} /atom".format( input_std) )
 else:
     predict_global_ens_std = None
@@ -1299,7 +1050,7 @@ AnalyzeEnergyResults(test_global_ens, predict_global_ens, s,
                 predicted_stdev=predict_global_ens_std, n_atoms = test_global_nats, in_notebook=in_notebook, output_directory=calculation_results_directory)
 
 
-# In[28]:
+# In[27]:
 
 
 # Creates plots and tables
@@ -1309,7 +1060,7 @@ if s.use_forces:
                         output_directory=calculation_results_directory)
 
 
-# In[29]:
+# In[28]:
 
 
 # This closes the log file. Probably not necessary since it is at the end of the script, but it's best practice.

@@ -1,8 +1,14 @@
 {
-    "title": "Test",
+    "title": "Debugging_qm7",
     "structure_file": "qm7b.db",
-    "output_energy_units": "kcal/mol",
-    "input_energy_units": "kcal/mol",
-    "import_fraction": 0.1,
-    "n_train": 400
+    "output_energy_units": "kcal/mol",    
+    "input_energy_units": "kcal/mol",    
+    "n_total":600,
+    "n_train": 300,
+    "use_forces":false,
+    "molecular_dynamics":false,
+    "use_self_energies":true,
+    "rcut": 6,
+    "nmax": 8,
+    "lmax": 4
 }

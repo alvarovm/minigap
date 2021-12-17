@@ -194,6 +194,7 @@ def separate_outliers(dataset, center_mode = "mean", range_mode="std_dev", perce
     percentile_lower = 50 - percentile_range/2
     
     dataset = np.array(dataset)
+
     if len(dataset.shape) not in (1,2):
         if verbose:
             print( "separate_outliers does not currently support a {}-dimensional dataset".format(len(dataset.shape)) )
@@ -290,5 +291,5 @@ def separate_outliers(dataset, center_mode = "mean", range_mode="std_dev", perce
         if len(dataset.shape) == 1:
             outlier_settings_message += "\n{}/{} {} were found to be outliers.".format(len(outlier_data), len(dataset), data_label)
         print(outlier_settings_message)
-    
+
     return normal_data, outlier_data, normal_indices, outlier_indices

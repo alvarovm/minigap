@@ -26,6 +26,10 @@ def check_if_in_notebook():
     except NameError:
         return False      # Probably standard Python interpreter
     
+def cast(in_variable, out_type=""):
+    if out_type == "":
+        out_type = type(in_variable)
+    return out_type(in_variable)
     
 def PrintNoScientificNotation(*x):
     np.set_printoptions(suppress=True) # Do not print in scientific notation
