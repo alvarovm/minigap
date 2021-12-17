@@ -38,7 +38,7 @@ class Structure3DPlot:
         self.structure = structure.copy()
 
         # get intitial guess for a few variables
-        self.likely_boundary = np.max(np.ptp(self.structure.positions,axis=0)) * 4/3 
+        self.reasonable_boundary = np.max(np.ptp(self.structure.positions,axis=0)) * 4/3 
 
         self.ModifyVisualParameters(**kwargs)
         
@@ -52,7 +52,7 @@ class Structure3DPlot:
         self.figsize = kwargs.get('figsize', (6.5, 6))
         self.elevation = kwargs.get('elevation', 70)
         self.azimuth = kwargs.get('azimuth', 0)
-        self.sidelength = kwargs.get('sidelength', self.likely_boundary)
+        self.sidelength = kwargs.get('sidelength', self.reasonable_boundary)
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
@@ -147,9 +147,9 @@ class Structure3DAnimation:
         self.n_structs = len(self.structure_list)
 
         # get intitial guess for a few variables
-        self.n_atoms_likely_max = len(self.structure_list[0].positions)
-        self.n_bonds_likely_max = self.n_atoms_likely_max*2 + 1
-        self.likely_boundary = np.max(np.ptp(self.structure_list[0].positions, axis=0)) * 4/3         
+        self.n_atoms_max = max([len(struct.positions) for struct in self.structure_list])
+        self.n_bonds_likely_max = self.n_atoms_max*2 + 1
+        self.reasonable_boundary = np.max([np.ptp(struct.positions, axis=0) for struct in self.structure_list]) * 4/3         
         
         self.ModifyVisualParameters(**kwargs)
         
@@ -175,7 +175,7 @@ class Structure3DAnimation:
         self.figsize = kwargs.get('figsize', (6.5, 6))
         self.elevation = kwargs.get('elevation', 70)
         self.azimuth = kwargs.get('azimuth', 0)
-        self.sidelength = kwargs.get('sidelength', self.likely_boundary)
+        self.sidelength = kwargs.get('sidelength', self.reasonable_boundary)
         self.no_grid = kwargs.get('no_grid', True)
         self.no_axis = kwargs.get('no_axis', True)
         
@@ -234,7 +234,7 @@ class Structure3DAnimation:
                         self.bws.append(self.BondWidth(bl_ij))                
         self.n_bonds = len(self.bonds)
         if self.n_bonds > self.n_bonds_likely_max:
-            print("Warning: More bonds detected than expected")
+            print("Warning: More bonds detected than expected. Please update Structure3DAnimation.n_bonds_likely_max to anticipate more bonds/atom.")
         self.bonds = np.array(self.bonds)
         return self.bonds
 
@@ -273,7 +273,7 @@ class Structure3DAnimation:
             self.frame_list = self.frames
             
         self.lines_atoms = []
-        for i in range(self.n_atoms_likely_max):
+        for i in range(self.n_atoms_max):
             line_atoms, = self.ax.plot3D([], [], 'o')
             self.lines_atoms.append(line_atoms)
         self.lines_bonds = []
@@ -296,15 +296,21 @@ class Structure3DAnimation:
         self.frame_counter += 1
         
         self.structure = self.structure_list[j].copy()
+        self.n_atoms = len(self.structure.positions)
         self.SetAtomList()
         self.SetBondList()        
         
-        for i in range(self.n_atoms):
-            self.lines_atoms[i].set_data(self.positions[i][0], self.positions[i][1])
-            self.lines_atoms[i].set_3d_properties(self.positions[i][2])
-            self.lines_atoms[i].set_color(self.atom_colors[i])
-            self.lines_atoms[i].set_markersize(self.atom_sizes[i])
-            self.lines_atoms[i].set_zorder(1)
+        for i in range(self.n_atoms_max):
+            if i in range(self.n_atoms):
+                self.lines_atoms[i].set_data(self.positions[i][0], self.positions[i][1])
+                self.lines_atoms[i].set_3d_properties(self.positions[i][2])
+                self.lines_atoms[i].set_color(self.atom_colors[i])
+                self.lines_atoms[i].set_markersize(self.atom_sizes[i])
+                self.lines_atoms[i].set_zorder(1)
+            else:
+                # Make extra atom invisible
+                # Only relavent if self.structure_list has structures with variable # of atoms
+                self.lines_atoms[i].set_color((0,0,0,0))
         for i in range(self.n_bonds_likely_max):
             if i < self.n_bonds:
                 self.lines_bonds[i].set_data(self.bonds[i][0], self.bonds[i][1])
@@ -330,7 +336,7 @@ class Structure3DAnimation:
 miniGAP_parent_directory = path.dirname(path.dirname(path.realpath(__file__))) + "/"
 data_directory = miniGAP_parent_directory + "data/"
 element_color_map, element_radius_map = import_default_element_values(data_directory)
-# Overriding VESTA defaults for C and H
+# Overriding VESTA defaults for C and H and N
 element_color_map['C'] = 'g'
 element_color_map['N'] = 'b'
 element_color_map['H'] = 'k'
