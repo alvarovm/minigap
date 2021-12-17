@@ -912,11 +912,7 @@ if s.use_forces:
 
 
 # make a regroup function
-# test_ens_regrouped = test_ens_rescaled.reshape(-1, len(StructureList[0]))
-# predict_ens_regrouped = predict_ens_rescaled.reshape(-1, len(StructureList[0]))
-# self_energies_regrouped = [[self_energy(atom.symbol, use_librascal_values=s.use_self_energies) for atom in StructureList[i]] for i in test_indices]
-# test_global_ens = np.sum(test_ens_regrouped + self_energies_regrouped, axis=1)
-# predict_global_ens = np.sum(predict_ens_regrouped + self_energies_regrouped, axis=1)
+
 test_global_ens = (test_struct_bools @ test_ens_rescaled ).flatten() + test_en_shfts
 predict_global_ens = ( test_struct_bools @ predict_ens_rescaled ).flatten() + test_en_shfts
 test_global_nats = NAtList[test_indices]

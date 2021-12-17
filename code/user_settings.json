@@ -10,5 +10,6 @@
     "use_self_energies":true,
     "rcut": 6,
     "nmax": 8,
-    "lmax": 4
+    "lmax": 4,
+    "isolated_energies":null
 }

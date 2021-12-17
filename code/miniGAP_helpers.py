@@ -150,15 +150,13 @@ def CompileStructureList(structure_settings, in_notebook, miniGAP_parent_directo
             struct_list = import_structs_for_miniGAP( structure_settings, in_notebook, miniGAP_parent_directory)
     return struct_list 
 
+def isolated_energy_parser(user_input):
+    # returns dictionary from input format
+    # e.g. "H:-0.4::Li:-7.5" --> {"H":-0.4, "Li":-7.5}
+    return {atom_energy.split(":")[0]:float(atom_energy.split(":")[1]) for atom_energy in user_input.split("::")}
 
-def self_energy(element, use_librascal_values=False, dtype=np.float64):
-    if use_librascal_values:
-        # distorted propenol self energies from librascal notebook
-#         self_contributions = {
-#             "H": -6.492647589968434,
-#             "C": -38.054950840332474,
-#             "O": -83.97955098636527,
-#         }
+# returns isolated energies in eV
+def get_isolated_energy(element, user_provided_isolated_energy_string, user_unit):
         # Calculated with B3LYP+D3 on CRYSTAL17
         default_isolated_energies = {
             "H":  -0.43796573720365,
@@ -192,19 +190,25 @@ def self_energy(element, use_librascal_values=False, dtype=np.float64):
             "As": -2235.7034565607,
             "Tc": -4205.5805934383
         }
-        self_contributions=default_isolated_energies
         
-        return self_contributions[element]
-    else:
-        return np.array(0, dtype=dtype)    
+        if user_provided_isolated_energy_string is not None:
+            user_provided_isolated_energies = isolated_energy_parser(user_provided_isolated_energy_string)
+            if element in user_provided_isolated_energies:
+                isolated_energy = convert_energy(user_provided_isolated_energies[element], user_unit, "eV")
+            elif element in default_isolated_energies:
+                isolated_energy = default_isolated_energies[element]
+            else:
+                isolated_energy = 0
+        else:
+            isolated_energy = 0  
+        return isolated_energy
+  
 
     
 
 def GatherStructureInfo(struct_list, gather_settings ):
     gather_forces = gather_settings.use_forces
-    use_self_energies= gather_settings.use_self_energies
     alt_en_kw = gather_settings.alt_energy_keyword
-    dtype = gather_settings.dtype
     
     pos_list =  [list(atoms.positions) for atoms in struct_list]
     n_atom_list = np.array([len(struct) for struct in struct_list])
@@ -224,10 +228,10 @@ def GatherStructureInfo(struct_list, gather_settings ):
         # If you are using an input file which has structural information not in angstroms, forces learned by miniGAP will not be accurate
         en_list_i = convert_energy(en_list_i, gather_settings.input_energy_units, "eV") 
         # Subtract energy of free atoms if specified by user
-        self_energies = [ self_energy(atom.symbol, use_self_energies, dtype=dtype) for atom in struct]
-        en_list_i -= self_energies
+        isolated_energies = [ get_isolated_energy(atom.symbol, gather_settings.isolated_energies, gather_settings.isolated_energy_units) for atom in struct]
+        en_list_i -= isolated_energies
         en_list.append(en_list_i)
-        en_shift_list.append(sum(self_energies))
+        en_shift_list.append(sum(isolated_energies))
         
         if gather_forces:
             frc_list_i = struct.get_forces()
