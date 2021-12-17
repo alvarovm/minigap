@@ -68,7 +68,7 @@ if tf_gpu_debugging:
 # 9) Compiles some functions as tf.functions
 # 10) Sets a list of values to be interpreted as Nonetype
 
-version = "0.0.0"
+version = "0.0.1"
 
 import sys
 sys.path.append('../code')
@@ -419,6 +419,24 @@ if s.print_timings:
 # In[11]:
 
 
+StructureList[0].get_forces
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[12]:
+
+
 # You will see the TickTock function used throughout this notebook
 # It is a helper function that allows me to time other functions concisely.
 # For an example usage set the below flag to True and inspect the code
@@ -451,13 +469,7 @@ if see_example_of_TickTock_usage:
         
 
 
-# In[ ]:
-
-
-
-
-
-# In[12]:
+# In[13]:
 
 
 # Set convert flag to True and run this cell to convert your file to a database right now from this notebook
@@ -474,7 +486,7 @@ if convert_to_db_here_and_now and in_notebook:
     # !python ../code/convert_to_db.py -efb overwrite $s.structure_file
 
 
-# In[13]:
+# In[14]:
 
 
 # Set this flag to True if you want to visualize your structure within this jupyter notebook (no pop-up window)
@@ -497,7 +509,7 @@ if visualize_structure_in_notebook or (s.save_dataset_animation & s.make_output_
         print("Created animation of structures in {:.2f} seconds ".format(TimeVisualize))
 
 
-# In[14]:
+# In[15]:
 
 
 # This cell 
@@ -508,7 +520,7 @@ if s.print_timings:
     print("Gathered energy{} and structure info in {:.2f} seconds".format(gather_forces_message, TimeGather))
 
 
-# In[15]:
+# In[16]:
 
 
 # This cell completes the timing started in the first cell if this code is executed from a script
@@ -519,7 +531,7 @@ if s.print_timings and not in_notebook:
     print("Completed the initial setup of miniGAP (including compiling structural data) in {:.2f} seconds".format(TimeStartUp))
 
 
-# In[16]:
+# In[17]:
 
 
 [SoapDerivativeList, SoapList], TimeSoap = TickTock(GenerateDescriptorsAndDerivatives, StructureList, s.nmax, s.lmax, s.rcut, s.smear, s.attach_SOAP_center, s.is_periodic, s.use_forces)
@@ -530,7 +542,7 @@ elif s.verbose:
     print("Generated SOAP descriptors{}.".format(calculate_derivatives_message))
 
 
-# In[17]:
+# In[18]:
 
 
 out_data, TimePrepare = TickTock(PrepareDataForTraining, 
@@ -553,7 +565,7 @@ else:
     train_sps_full, test_sps_full, train_ens, test_ens, train_nats, test_nats, train_en_shfts, test_en_shfts, train_indices, test_indices, train_struct_bools, test_struct_bools, soap_scaler, ens_scaler, ens_var, train_dsp_dx, test_dsp_dx, train_frcs, test_frcs, frcs_var = out_data 
 
 
-# In[18]:
+# In[19]:
 
 
 n_samples_full, n_features_full = train_sps_full.shape
@@ -580,7 +592,7 @@ else:
 # 2. Custom loss function vs optimizer.minimize
 # 3. Set certain variable untrainable
 
-# In[19]:
+# In[20]:
 
 
 # Initialize kernels and model hyperparameters
@@ -814,7 +826,7 @@ else:
 TimeBeforeWeights = time.time()
 
 
-# In[20]:
+# In[21]:
 
 
 
@@ -878,7 +890,7 @@ if s.use_forces:
 TimeAfterPrediction = time.time()
 
 
-# In[21]:
+# In[22]:
 
 
 # rescale
@@ -908,7 +920,7 @@ if s.use_forces:
     predict_frcs_rescaled = convert_force(predict_frcs_rescaled, "eV/ang", s.output_force_units)
 
 
-# In[22]:
+# In[23]:
 
 
 # make a regroup function
@@ -918,7 +930,7 @@ predict_global_ens = ( test_struct_bools @ predict_ens_rescaled ).flatten() + te
 test_global_nats = NAtList[test_indices]
 
 
-# In[23]:
+# In[24]:
 
 
 TrainingCellNonEpochsTraining = TimeBeforeEpoch0 - TimeBeforePreEpoch + TimeAfterTraining - TimeBeforeWeights 
@@ -935,7 +947,7 @@ if s.print_timings:
     print("{:50s}: {:.3f}".format("Prediction time", PredictionTime) )
 
 
-# In[24]:
+# In[25]:
 
 
 if True:
@@ -950,7 +962,7 @@ if True:
     print("Stored the hyperparameters and mse values for plotting under n={}".format(s.n_total) )
 
 
-# In[25]:
+# In[26]:
 
 
 plot_hyperparam_training = (in_notebook or s.n_epochs > 0)
@@ -1028,11 +1040,11 @@ if plot_hyperparam_training:
             plt.savefig(calculation_results_directory + hyperparameter_results_filename)    
 
 
-# In[26]:
+# In[27]:
 
 
 # Print outputs
-if s.prediction_calculation == "predict_f":
+if s.prediction_calculation == "predict_f" and s.energy_error_bars:
     predict_global_ens_var = (test_struct_bools @ predict_ens_var_rescaled ).flatten()
     predict_global_ens_std = predict_global_ens_var ** 0.5 
     input_std = (gpr_model.likelihood.variance.numpy() * ens_scaler.scale_[0] **2) ** 0.5
@@ -1046,7 +1058,7 @@ AnalyzeEnergyResults(test_global_ens, predict_global_ens, s,
                 predicted_stdev=predict_global_ens_std, n_atoms = test_global_nats, in_notebook=in_notebook, output_directory=calculation_results_directory)
 
 
-# In[27]:
+# In[28]:
 
 
 # Creates plots and tables
@@ -1056,7 +1068,7 @@ if s.use_forces:
                         output_directory=calculation_results_directory)
 
 
-# In[28]:
+# In[29]:
 
 
 # This closes the log file. Probably not necessary since it is at the end of the script, but it's best practice.
