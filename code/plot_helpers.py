@@ -54,7 +54,7 @@ def plot_predicted_vs_true(predicted, true, ax, variable_label = "", units = "",
     if units:
         units = " ({})".format(units)
     ax.set_xlabel("True {}{}".format(variable_label, units) )
-    ax.set_ylabel("Predicted {}".format(variable_label, units) )
+    ax.set_ylabel("Predicted {}{}".format(variable_label, units) )
     ax.plot(sorted(true), sorted(true), "-", c="k", lw=1)
     ax.grid()
     ax.set_axisbelow(True)

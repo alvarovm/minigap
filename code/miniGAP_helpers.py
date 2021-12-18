@@ -46,7 +46,7 @@ def import_structs_for_miniGAP(import_settings, in_notebook=True, miniGAP_parent
     verbose = import_settings.verbose 
     indices = [import_settings.md_index]
     
-    tested_filetypes = (".xyz", ".extxyz", ".extxyz.gz", ".xyz.gz", ".db")
+    tested_filetypes = (".xyz", ".extxyz", ".extxyz.gz", ".xyz.gz", ".db", ".traj")
     
     if "/" not in filename:
         filename = miniGAP_parent_directory + "data/" + filename
@@ -228,14 +228,17 @@ def GatherStructureInfo(struct_list, gather_settings ):
         # If you are using an input file which has structural information not in angstroms, forces learned by miniGAP will not be accurate
         en_list_i = convert_energy(en_list_i, gather_settings.input_energy_units, "eV") 
         # Subtract energy of free atoms if specified by user
-        isolated_energies = [ get_isolated_energy(atom.symbol, gather_settings.isolated_energies, gather_settings.isolated_energy_units) for atom in struct]
+        isolated_energies = [ get_isolated_energy(atom.symbol, gather_settings.isolated_energies, gather_settings.isolated_energy_units) for atom in struct ]
         en_list_i -= isolated_energies
         en_list.append(en_list_i)
+        # Sum of isolated energies of all atoms of each structure
         en_shift_list.append(sum(isolated_energies))
         
         if gather_forces:
+            # if "forces" not in StructureList[0].calc.results:
+            #     *do something* 
             frc_list_i = struct.get_forces()
-            # See above note about unit conversion
+            # See note in energy section about unit conversion
             frc_list_i = convert_force(frc_list_i, gather_settings.input_force_units, "eV/ang")
         else:
             frc_list_i = no_forces_string
@@ -572,7 +575,6 @@ def pick_kernel(kernel_type, **kwargs):
 
         
 def CreateMiniGAPVisualization(struct_list, visualization_settings, output_directory, animation_filename="DEFAULT_FILENAME"):
-
     from Visualize_Structures import Structure3DAnimation
 
     save_file = visualization_settings.save_dataset_animation & visualization_settings.make_output_files

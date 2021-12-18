@@ -1,0 +1,94 @@
+
+
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░███████████████████████████████████████████████████████████████████████████░░
+░░██████████████████████████████████           ██████     ██████           ██░░
+░░██████████████████████████████████   █████   ████         ████   █████   ██░░
+░░██████████████████████████████████   █████   ███    ███    ███   █████   ██░░
+░░██████████████████████████████████   ███████████   █████   ███   █████   ██░░
+░░██████████████████████████████████   ███████████   █████   ███           ██░░
+░░███████████████  ████████████  ███   ███     ███           ███   ██████████░░
+░░██          ████████      ████████   █████   ███   █████   ███   ██████████░░
+░░██  ██  ██  ███  ███  ██  ███  ███   █████   ███   █████   ███   ██████████░░
+░░██  ██  ██  ███  ███  ██  ███  ███           ███   █████   ███   ██████████░░
+░░███████████████████████████████████████████████████████████████████████████░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  version 0.0.1                                                      ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  script created on 2021/12/17                                       ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  GitHub Repository HTTPS://GITHUB.COM/ALVAROVM/MINIGAP              ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Authors                                                            ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Sean Stafford                                                      ░░░░░
+░░░░░  Dr. Álvaro Vázquez-Mayagoitia                                      ░░░░░
+░░░░░  Dr. Murat Keçeli                                                   ░░░░░
+░░░░░  Dr. Jose L. Mendoza-Cortes                                         ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Copyright 2021 Argonne UChicago LLC                                ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+
+Input settings for this calculation stored in /home/sstafford/Documents/Python/miniGAP/minigap/results/Graphene/miniGAP.settings
+Stack size set to unlimited
+1 GPU(s) recognized by tensorflow: [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]
+Imported 120 structures from ManyGraphenes_unzipped.db. Structures were taken uniformly from throughout dataset which contains 10000 total structures.
+Compiling structures into list took 4.42 seconds
+Gathered energy and structure info in 2.50 seconds
+Completed the initial setup of miniGAP (including compiling structural data) in 9.53 seconds
+Generated SOAP descriptors in 1.23 seconds
+Split the 120-structure dataset into a 79-structure training dataset and a 41-structure test dataset.
+The test dataset will be set aside until the model is trained and ready for prediction.
+Reformatted data to build model in 0.03 seconds.
+Not using any sparsity.
+Using a degree 2 polynomial kernel.
+Alert: Double check the training validity for degree =/= 1 when not using predict_f
+Training using 7963 atoms without batching.
+Calculating weights
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| name                    | class     | transform        | prior   | trainable   | shape   | dtype   |        value |
++=========================+===========+==================+=========+=============+=========+=========+==============+
+| GPR.kernel.variance     | Parameter | Softplus         |         | True        | ()      | float64 | 1            |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.kernel.degree       | Parameter | Identity         |         | False       | ()      | float64 | 2            |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.kernel.offset       | Parameter | Softplus         |         | False       | ()      | float64 | 2.22507e-308 |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.likelihood.variance | Parameter | Softplus + Shift |         | True        | ()      | float64 | 0.0001       |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+Predicting final energies
+Training time outside of epochs in training cell  : 0.713
+Prediction time                                   : 0.568
+Stored the hyperparameters and mse values for plotting under n=120
+Our observation noise variance implies our reference error is +/- 3.06e-05 /atom
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Checking if outliers exists among energy predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-0.91, 0.97).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 0.09) of non-outlier error
+0/41 error were found to be outliers.
+Cropping energy plots determined to be unnecessary.
+                               Global Energy Global Energy/Atom Local Energy
+Units                                     eV            eV/Atom      eV/Atom
+Root Mean Squared Error             0.303828           0.002713     0.002951
+Mean Absolute Error                 0.257729           0.002301     0.002461
+Max Absolute Error                  0.692071           0.006179     0.008759
+r²                                  0.837215           0.837215     0.184109
+Variance of Log Absolute Error      0.836574           0.836574     1.055474
+Linear Fit Slope                    0.174084           0.174084     0.174084
+Linear Fit y-Intercept           -929.372544          -8.297969    22.895401
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Graphene/energy_prediction_plots.png' selected.
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Graphene/energy_errors.csv' selected.

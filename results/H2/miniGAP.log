@@ -1,0 +1,171 @@
+
+
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░███████████████████████████████████████████████████████████████████████████░░
+░░██████████████████████████████████           ██████     ██████           ██░░
+░░██████████████████████████████████   █████   ████         ████   █████   ██░░
+░░██████████████████████████████████   █████   ███    ███    ███   █████   ██░░
+░░██████████████████████████████████   ███████████   █████   ███   █████   ██░░
+░░██████████████████████████████████   ███████████   █████   ███           ██░░
+░░███████████████  ████████████  ███   ███     ███           ███   ██████████░░
+░░██          ████████      ████████   █████   ███   █████   ███   ██████████░░
+░░██  ██  ██  ███  ███  ██  ███  ███   █████   ███   █████   ███   ██████████░░
+░░██  ██  ██  ███  ███  ██  ███  ███           ███   █████   ███   ██████████░░
+░░███████████████████████████████████████████████████████████████████████████░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  version 0.0.1                                                      ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  script created on 2021/12/17                                       ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  GitHub Repository HTTPS://GITHUB.COM/ALVAROVM/MINIGAP              ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Authors                                                            ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Sean Stafford                                                      ░░░░░
+░░░░░  Dr. Álvaro Vázquez-Mayagoitia                                      ░░░░░
+░░░░░  Dr. Murat Keçeli                                                   ░░░░░
+░░░░░  Dr. Jose L. Mendoza-Cortes                                         ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Copyright 2021 Argonne UChicago LLC                                ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+
+Input settings for this calculation stored in /home/sstafford/Documents/Python/miniGAP/minigap/results/H2/miniGAP.settings
+Stack size set to unlimited
+1 GPU(s) recognized by tensorflow: [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]
+According to EMT calculator:
+Hydrogen atom energy:  3.21 eV
+Hydrogen molecule energy:  3.83 eV
+Atomization energy:  2.59 eV
+Now generating MD trajectory of 1000 H₂ molecules at 0 K using VelocityVerlet dynamics and the EMT calculator
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/H2/H2_VelocityVerlet.traj' selected.
+Step 100: Energy per atom: Epot = 1.918eV  Ekin = 0.000eV (T=  0K) Etot = 1.918eV
+Step 200: Energy per atom: Epot = 1.913eV  Ekin = 0.000eV (T=  0K) Etot = 1.913eV
+Step 300: Energy per atom: Epot = 1.918eV  Ekin = 0.000eV (T=  2K) Etot = 1.918eV
+Step 400: Energy per atom: Epot = 1.913eV  Ekin = 0.000eV (T=  0K) Etot = 1.913eV
+Step 500: Energy per atom: Epot = 1.917eV  Ekin = 0.001eV (T=  4K) Etot = 1.918eV
+Step 600: Energy per atom: Epot = 1.913eV  Ekin = 0.000eV (T=  0K) Etot = 1.913eV
+Step 700: Energy per atom: Epot = 1.917eV  Ekin = 0.002eV (T=  8K) Etot = 1.918eV
+Step 800: Energy per atom: Epot = 1.913eV  Ekin = 0.000eV (T=  0K) Etot = 1.913eV
+Step 900: Energy per atom: Epot = 1.915eV  Ekin = 0.003eV (T= 14K) Etot = 1.918eV
+Step 999: Energy per atom: Epot = 1.912eV  Ekin = 0.001eV (T=  6K) Etot = 1.913eV
+Compiling structures into list took 2.53 seconds
+Generating animation frame 0 (0% complete)
+Generating animation frame 10 (10% complete)
+Generating animation frame 20 (20% complete)
+Generating animation frame 30 (30% complete)
+Generating animation frame 40 (40% complete)
+Generating animation frame 50 (50% complete)
+Generating animation frame 60 (60% complete)
+Generating animation frame 70 (70% complete)
+Generating animation frame 80 (80% complete)
+Generating animation frame 90 (90% complete)
+Generating animation frame 100 (100% complete)
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/H2/structure_animation.mp4' selected.
+Generating animation frame 0 (0% complete)
+Generating animation frame 10 (10% complete)
+Generating animation frame 20 (20% complete)
+Generating animation frame 30 (30% complete)
+Generating animation frame 40 (40% complete)
+Generating animation frame 50 (50% complete)
+Generating animation frame 60 (60% complete)
+Generating animation frame 70 (70% complete)
+Generating animation frame 80 (80% complete)
+Generating animation frame 90 (90% complete)
+Generating animation frame 100 (100% complete)
+Created animation of the structural dataset used in this calculation in the results directory. This might be useful to verify the correct structures are being used.
+Created animation of structures in 2.94 seconds 
+Gathered energy, force and structure info in 0.59 seconds
+Completed the initial setup of miniGAP (including compiling structural data) in 8.94 seconds
+Generated SOAP descriptors and derivatives in 0.29 seconds
+Split the 1000-structure dataset into a 600-structure training dataset and a 400-structure test dataset.
+The test dataset will be set aside until the model is trained and ready for prediction.
+Reformatted data to build model in 0.01 seconds.
+Not using any sparsity.
+Using a degree 2 polynomial kernel.
+Alert: Double check the training validity for degree =/= 1 when not using predict_f
+Training using 1080 atoms without batching.
+Calculating weights
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| name                    | class     | transform        | prior   | trainable   | shape   | dtype   |        value |
++=========================+===========+==================+=========+=============+=========+=========+==============+
+| GPR.kernel.variance     | Parameter | Softplus         |         | True        | ()      | float64 | 1            |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.kernel.degree       | Parameter | Identity         |         | False       | ()      | float64 | 2            |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.kernel.offset       | Parameter | Softplus         |         | False       | ()      | float64 | 2.22507e-308 |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.likelihood.variance | Parameter | Softplus + Shift |         | True        | ()      | float64 | 0.0001       |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+Predicting final energies
+Predicting final forces
+Training time outside of epochs in training cell  : 0.758
+Prediction time                                   : 0.499
+Stored the hyperparameters and mse values for plotting under n=1000
+Our observation noise variance implies our reference error is +/- 0.00492 /atom
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Checking if outliers exists among energy predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-0.00, 0.00).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 0.00) of non-outlier error
+65/400 error were found to be outliers.
+Cropping energy plots determined to be unnecessary.
+                               Global Energy Global Energy/Atom Local Energy
+Units                                     eV            eV/Atom      eV/Atom
+Root Mean Squared Error              0.00073           0.000365     0.000365
+Mean Absolute Error                 0.000483           0.000242     0.000242
+Max Absolute Error                  0.002314           0.001157     0.001157
+r²                                  0.999999           0.999999     0.999999
+Variance of Log Absolute Error      1.745305           1.745305     1.745305
+Linear Fit Slope                    1.000031           1.000031     1.000031
+Linear Fit y-Intercept             -0.000119          -0.000059    -0.000073
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/H2/energy_prediction_plots.png' selected.
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/H2/energy_errors.csv' selected.
+/home/sstafford/Documents/Python/miniGAP/minigap/code/analysis_helpers.py:150: RuntimeWarning: invalid value encountered in true_divide
+  phi = np.arccos(x  / np.sqrt(x **2 + y **2) ) * np.sign(y)
+/home/sstafford/anaconda3/envs/minigap/lib/python3.9/site-packages/numpy/lib/function_base.py:2642: RuntimeWarning: invalid value encountered in true_divide
+  c /= stddev[:, None]
+/home/sstafford/Documents/Python/miniGAP/minigap/code/analysis_helpers.py:87: RuntimeWarning: divide by zero encountered in log
+  error_statistics[stat] = np.var(np.log(abs_errors), axis=0)
+/home/sstafford/anaconda3/envs/minigap/lib/python3.9/site-packages/numpy/core/_methods.py:229: RuntimeWarning: invalid value encountered in subtract
+  x = asanyarray(arr - arrmean)
+Received the error 'invalid value encountered in true_divide' when trying to produce a least squares fit.
+Received the error 'invalid value encountered in true_divide' when trying to produce a least squares fit.
+Received the error 'On entry to DLASCL parameter number 4 had an illegal value' when trying to produce a least squares fit.
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Checking if outliers exists among Cartesian force components predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-0.00, 0.00).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 0.00) of non-outlier error
+800/2400 error were found to be outliers.
+Checking if outliers exists among force magnitude predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-0.04, 0.04).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 0.00) of non-outlier error
+104/800 error were found to be outliers.
+Checking if outliers exists among force angle predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-0.00, 0.00).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 0.00) of non-outlier error
+0/800 error were found to be outliers.
+Cropping force plots determined to be unnecessary.
+                                    Fx      Fy        Fz       |F|    θ
+Units                           eV/ang  eV/ang    eV/ang    eV/ang    °
+Root Mean Squared Error            0.0     0.0   0.07294   0.07294  0.0
+Mean Absolute Error                0.0     0.0  0.031605  0.031605  0.0
+Max Absolute Error                 0.0     0.0  0.344623  0.344623  0.0
+r²                                 NaN     NaN   0.99998  0.999963  1.0
+Variance of Log Absolute Error     NaN     NaN  2.076083  2.076083  NaN
+Linear Fit Slope                  None    None  0.996842  0.994001  1.0
+Linear Fit y-Intercept            None    None      -0.0  0.048885 -0.0
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/H2/force_prediction_plots.png' selected.
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/H2/force_errors.csv' selected.

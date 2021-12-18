@@ -1,15 +1,17 @@
 {
-    "title": "Debugging_qm7",
+    "title": "QM7",
+    "append_date_to_title": false,
     "structure_file": "qm7b.db",
-    "output_energy_units": "kcal/mol",    
-    "input_energy_units": "kcal/mol",    
-    "n_total":600,
-    "n_train": 300,
+    "input_energy_units": "kcal/mol",
+    "output_energy_units": "kcal/mol",
+    "isolated_energies":null,
     "use_forces":false,
-    "molecular_dynamics":false,
-    "use_self_energies":true,
-    "rcut": 6,
-    "nmax": 8,
+    "n_total":1000,
+    "n_train": 600,
+    "rcut": 4,
+    "nmax": 6,
     "lmax": 4,
-    "isolated_energies":null
+    "energy_error_bars":true,
+    "save_dataset_animation": true,
+    "split_seed":20211217
 }

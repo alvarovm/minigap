@@ -1,0 +1,160 @@
+
+
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░███████████████████████████████████████████████████████████████████████████░░
+░░██████████████████████████████████           ██████     ██████           ██░░
+░░██████████████████████████████████   █████   ████         ████   █████   ██░░
+░░██████████████████████████████████   █████   ███    ███    ███   █████   ██░░
+░░██████████████████████████████████   ███████████   █████   ███   █████   ██░░
+░░██████████████████████████████████   ███████████   █████   ███           ██░░
+░░███████████████  ████████████  ███   ███     ███           ███   ██████████░░
+░░██          ████████      ████████   █████   ███   █████   ███   ██████████░░
+░░██  ██  ██  ███  ███  ██  ███  ███   █████   ███   █████   ███   ██████████░░
+░░██  ██  ██  ███  ███  ██  ███  ███           ███   █████   ███   ██████████░░
+░░███████████████████████████████████████████████████████████████████████████░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  version 0.0.1                                                      ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  script created on 2021/12/17                                       ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  GitHub Repository HTTPS://GITHUB.COM/ALVAROVM/MINIGAP              ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Authors                                                            ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Sean Stafford                                                      ░░░░░
+░░░░░  Dr. Álvaro Vázquez-Mayagoitia                                      ░░░░░
+░░░░░  Dr. Murat Keçeli                                                   ░░░░░
+░░░░░  Dr. Jose L. Mendoza-Cortes                                         ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░  Copyright 2021 Argonne UChicago LLC                                ░░░░░
+░░░░░                                                                     ░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+
+Input settings for this calculation stored in /home/sstafford/Documents/Python/miniGAP/minigap/results/Benzene/miniGAP.settings
+Stack size set to unlimited
+1 GPU(s) recognized by tensorflow: [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]
+Now generating MD trajectory of 1000 C6H6 structures at 0 K using VelocityVerlet dynamics and the EMT calculator
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Benzene/C6H6_VelocityVerlet.traj' selected.
+Step 100: Energy per atom: Epot = 0.252eV  Ekin = 0.101eV  Etot = 0.353eV
+Step 200: Energy per atom: Epot = 0.245eV  Ekin = 0.108eV  Etot = 0.353eV
+Step 300: Energy per atom: Epot = 0.309eV  Ekin = 0.044eV  Etot = 0.353eV
+Step 400: Energy per atom: Epot = 0.212eV  Ekin = 0.141eV  Etot = 0.353eV
+Step 500: Energy per atom: Epot = 0.282eV  Ekin = 0.071eV  Etot = 0.353eV
+Step 600: Energy per atom: Epot = 0.256eV  Ekin = 0.097eV  Etot = 0.353eV
+Step 700: Energy per atom: Epot = 0.284eV  Ekin = 0.069eV  Etot = 0.353eV
+Step 800: Energy per atom: Epot = 0.272eV  Ekin = 0.081eV  Etot = 0.353eV
+Step 900: Energy per atom: Epot = 0.221eV  Ekin = 0.132eV  Etot = 0.353eV
+Step 999: Energy per atom: Epot = 0.341eV  Ekin = 0.012eV  Etot = 0.353eV
+Compiling structures into list took 5.72 seconds
+Generating animation frame 0 (0% complete)
+Generating animation frame 10 (10% complete)
+Generating animation frame 20 (20% complete)
+Generating animation frame 30 (30% complete)
+Generating animation frame 40 (40% complete)
+Generating animation frame 50 (50% complete)
+Generating animation frame 60 (60% complete)
+Generating animation frame 70 (70% complete)
+Generating animation frame 80 (80% complete)
+Generating animation frame 90 (90% complete)
+Generating animation frame 100 (100% complete)
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Benzene/structure_animation.mp4' selected.
+Generating animation frame 0 (0% complete)
+Generating animation frame 10 (10% complete)
+Generating animation frame 20 (20% complete)
+Generating animation frame 30 (30% complete)
+Generating animation frame 40 (40% complete)
+Generating animation frame 50 (50% complete)
+Generating animation frame 60 (60% complete)
+Generating animation frame 70 (70% complete)
+Generating animation frame 80 (80% complete)
+Generating animation frame 90 (90% complete)
+Generating animation frame 100 (100% complete)
+Created animation of the structural dataset used in this calculation in the results directory. This might be useful to verify the correct structures are being used.
+Created animation of structures in 5.53 seconds 
+Gathered energy, force and structure info in 2.63 seconds
+Completed the initial setup of miniGAP (including compiling structural data) in 16.51 seconds
+Generated SOAP descriptors and derivatives in 13.63 seconds
+Split the 1000-structure dataset into a 600-structure training dataset and a 400-structure test dataset.
+The test dataset will be set aside until the model is trained and ready for prediction.
+Reformatted data to build model in 0.08 seconds.
+Not using any sparsity.
+Using a degree 2 polynomial kernel.
+Alert: Double check the training validity for degree =/= 1 when not using predict_f
+Training using 6480 atoms without batching.
+Calculating weights
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| name                    | class     | transform        | prior   | trainable   | shape   | dtype   |        value |
++=========================+===========+==================+=========+=============+=========+=========+==============+
+| GPR.kernel.variance     | Parameter | Softplus         |         | True        | ()      | float64 | 1            |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.kernel.degree       | Parameter | Identity         |         | False       | ()      | float64 | 2            |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.kernel.offset       | Parameter | Softplus         |         | False       | ()      | float64 | 2.22507e-308 |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+| GPR.likelihood.variance | Parameter | Softplus + Shift |         | True        | ()      | float64 | 0.0001       |
++-------------------------+-----------+------------------+---------+-------------+---------+---------+--------------+
+Predicting final energies
+Predicting final forces
+Training time outside of epochs in training cell  : 0.771
+Prediction time                                   : 1.048
+Stored the hyperparameters and mse values for plotting under n=1000
+Our observation noise variance implies our reference error is +/- 0.187 /atom
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Checking if outliers exists among energy predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-0.00, 0.00).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 0.00) of non-outlier error
+3/400 error were found to be outliers.
+Cropping energy plots determined to be unnecessary.
+                               Global Energy Global Energy/Atom Local Energy
+Units                                     eV            eV/Atom      eV/Atom
+Root Mean Squared Error              0.00194           0.000162     0.000404
+Mean Absolute Error                 0.001443            0.00012     0.000256
+Max Absolute Error                  0.006878           0.000573     0.001701
+r²                                  0.999986           0.999986          1.0
+Variance of Log Absolute Error      1.435841           1.435841     1.925894
+Linear Fit Slope                     1.00012            1.00012     0.999999
+Linear Fit y-Intercept             -0.000634          -0.000053    -0.000001
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Benzene/energy_prediction_plots.png' selected.
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Benzene/energy_errors.csv' selected.
+/home/sstafford/anaconda3/envs/minigap/lib/python3.9/site-packages/numpy/lib/function_base.py:2642: RuntimeWarning: invalid value encountered in true_divide
+  c /= stddev[:, None]
+/home/sstafford/Documents/Python/miniGAP/minigap/code/analysis_helpers.py:87: RuntimeWarning: divide by zero encountered in log
+  error_statistics[stat] = np.var(np.log(abs_errors), axis=0)
+/home/sstafford/anaconda3/envs/minigap/lib/python3.9/site-packages/numpy/core/_methods.py:229: RuntimeWarning: invalid value encountered in subtract
+  x = asanyarray(arr - arrmean)
+Received the error 'invalid value encountered in true_divide' when trying to produce a least squares fit.
+Received the error 'Polyfit may be poorly conditioned' when trying to produce a least squares fit.
+Calculated the following error statistics: ('rmse', 'mae', 'mxae', 'r2', 'logvae', 'm', 'b')
+Checking if outliers exists among Cartesian force components predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-19.00, 19.00).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 1.90) of non-outlier error
+0/9600 error were found to be outliers.
+Checking if outliers exists among force magnitude predictions.
+Outliers of error defined to exist outside the range (25th percentile - 1.5*25th-75th percentile range, 75th percentile + 1.5*25th-75th percentile range), i.e. (-18.01, 37.61).
+Additionally, error was not considered an outlier if it fell outside that range, but was within 0.2 * 25th-75th percentile range ( = 2.78) of non-outlier error
+0/4800 error were found to be outliers.
+Cropping force plots determined to be unnecessary.
+                                        Fx         Fy        |F|
+Units                               eV/ang     eV/ang     eV/ang
+Root Mean Squared Error           8.962877    8.96287  12.613255
+Mean Absolute Error               5.970675    6.89433  10.160393
+Max Absolute Error                20.19736  23.321937  23.321947
+r²                                0.692043   0.692044   0.299566
+Variance of Log Absolute Error  104.499106   1.892854   2.056149
+Linear Fit Slope                  5.925702   5.925698   4.064279
+Linear Fit y-Intercept                 0.0        0.0   4.923978
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Benzene/force_prediction_plots.png' selected.
+Filename '/home/sstafford/Documents/Python/miniGAP/minigap/results/Benzene/force_errors.csv' selected.
