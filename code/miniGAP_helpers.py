@@ -495,17 +495,17 @@ def mse_2factor(y1_predict, y1_true, weight1, y2_predict, y2_true, weight2):
 def train_hyperparams_without_forces(model, valid_soap, valid_energy, optimizer):
     with tf.GradientTape() as tape:
         predict_energy = model.predict_f(valid_soap)[0]
-        tf.print("predict energies = ", predict_energy[:3])
+#         tf.print("predict energies = ", predict_energy[:3])
         my_mse = mse(predict_energy, valid_energy)
     gradients = tape.gradient(my_mse, model.trainable_variables)
-    tf.print("gradients = ", gradients)
+#     tf.print("gradients = ", gradients)
     optimizer.apply_gradients(zip(gradients, model.trainable_variables))
     print("TRACING train_hyperparams_without_forces")
     return my_mse
 
 # @tf.function(autograph=False, experimental_compile=False)
-def predict_energies_from_weights(c, soaps_old, soaps_new, degree):
-    k = tf.math.pow( tf.tensordot(soaps_old, tf.transpose(soaps_new), axes=1), degree )
+def predict_energies_from_weights(c, soaps_old, soaps_new, degree, amplitude):
+    k = amplitude * tf.math.pow( tf.tensordot(soaps_old, tf.transpose(soaps_new), axes=1), degree )
     return tf.linalg.matmul(c, k, transpose_a=True)
 
 
@@ -565,8 +565,6 @@ def pick_kernel(kernel_type, **kwargs):
         gpflow.set_trainable(kernel.degree, kernel_settings["degree_trainable"])
         if kernel_settings["verbose"]:
             print("Using a degree {} polynomial kernel.".format(kernel_settings["degree"]) )
-            if kernel_settings["degree"] != 1:
-                print("Alert: Double check the training validity for degree =/= 1 when not using predict_f".format(kernel_settings["degree"]))
 
         return kernel
     else:
